@@ -13,13 +13,13 @@ jobs:
       run: |
            choco install -y git
            choco install -y visualstudio2022-workload-vctools
-           choco install -y python36
-           choco install -y python37
-           choco install -y python38
-           choco install -y python39
-           choco install -y python310
-           choco install -y python311
-           choco install -y python312
+           choco install -y python36 --force
+           choco install -y python37 --force
+           choco install -y python38 --force
+           choco install -y python39 --force
+           choco install -y python310 --force
+           choco install -y python311 --force
+           choco install -y python312 --force
            choco install -y wget
            choco install -y unzip
     - name: uninstall corrupt cached python versions 38 til 312
