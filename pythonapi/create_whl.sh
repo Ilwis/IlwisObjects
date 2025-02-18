@@ -4,7 +4,7 @@ mkdir ../output/gccx64_/release/python_whl
 cp pythonapi/setup.py ../output/gccx64_/release/python_whl
 cd ../output/gccx64_/release/python_whl
 cp -r ../ilwispy/ilwis .
-python3 ./setup.py bdist_wheel
+python3 ./setup.py bdist_wheel --plat-name=manylinux_2_28_x86_64
 rm -r build
 rm -r ilwis
 rm -r ilwis.egg-info
