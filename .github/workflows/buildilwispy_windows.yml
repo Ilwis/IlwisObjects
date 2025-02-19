@@ -13,29 +13,36 @@ jobs:
       run: |
            choco install -y git
            choco install -y visualstudio2022-workload-vctools
-           choco install -y python36 --force
-           choco install -y python37 --force
-           choco install -y python38 --force
-           choco install -y python39 --force
-           choco install -y python310 --force
-           choco install -y python311 --force
-           choco install -y python312 --force
+           choco install -y python36
+           choco install -y python37
+           choco install -y python38
+           choco install -y python39
+           choco install -y python310
+           choco install -y python311
+           # choco install -y python312
            choco install -y wget
            choco install -y unzip
-    - name: uninstall corrupt cached python versions 38 til 312
+    - name: uninstall corrupt cached python versions 38 til 311
       run: |
            choco uninstall -y python38
            choco uninstall -y python39
            choco uninstall -y python310
            choco uninstall -y python311
-           choco uninstall -y python312
-    - name: reinstall python versions 38 til 312
+           # choco uninstall -y python312
+    - name: reinstall python versions 38 til 311
       run: |
            choco install -y python38
            choco install -y python39
            choco install -y python310
            choco install -y python311
-           choco install -y python312
+           # choco install -y python312
+    - name: install python 3.12 by downloading a zipfile
+      run: |
+           C:
+           cd C:/
+           wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/Python312.zip
+           unzip Python312.zip
+           del Python312.zip
     - name: install python packages
       run: |
            c:/python36/python.exe -m pip install --upgrade pip
