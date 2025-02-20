@@ -36,13 +36,16 @@ jobs:
            choco install -y python310
            choco install -y python311
            # choco install -y python312
-    - name: install python 3.12 by downloading a zipfile
+    - name: install python 3.12 and 3.13 by downloading a zipfile
       run: |
            C:
            cd C:/
            wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/Python312.zip
            unzip Python312.zip
            del Python312.zip
+           wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/Python313.zip
+           unzip Python313.zip
+           del Python313.zip
     - name: install python packages
       run: |
            c:/python36/python.exe -m pip install --upgrade pip
