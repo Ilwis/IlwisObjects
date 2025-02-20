@@ -59,6 +59,8 @@ jobs:
            c:/python311/python.exe -m pip install wheel setuptools twine
            c:/python312/python.exe -m pip install --upgrade pip
            c:/python312/python.exe -m pip install wheel setuptools twine
+           c:/python313/python.exe -m pip install --upgrade pip
+           c:/python313/python.exe -m pip install wheel setuptools twine
     - name: install Qt
       run: |
            wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/msvc2017_64.zip
@@ -110,4 +112,5 @@ jobs:
            move python_whl310/*.whl .
            move python_whl311/*.whl .
            move python_whl312/*.whl .
+           move python_whl313/*.whl .
            c:/python36/python.exe -m twine upload --repository testpypi *.whl --verbose
