@@ -12,6 +12,7 @@ jobs:
     - name: install tools
       run: |
            # choco install -y python312 --force
+           choco install -y python313
            # choco install -y git
            # choco install -y visualstudio2022-workload-vctools
            # "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat"
@@ -19,15 +20,15 @@ jobs:
            # mkdir develop
            # cd develop
            # git clone https://github.com/52North/IlwisObjects.git
-           choco install -y wget
-           choco install -y unzip
-           C:
-           cd C:/
-           wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/Python312.zip
-           unzip Python312.zip
-           del Python312.zip
-           c:/python312/python.exe -m pip install --upgrade pip
-           c:/python312/python.exe -m pip install wheel setuptools twine
+           # choco install -y wget
+           # choco install -y unzip
+           # C:
+           # cd C:/
+           # wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/Python312.zip
+           # unzip Python312.zip
+           # del Python312.zip
+           # c:/python312/python.exe -m pip install --upgrade pip
+           # c:/python312/python.exe -m pip install wheel setuptools twine
     - name: Setup tmate session
       if: success() || failure()
       uses: mxschmitt/action-tmate@v3
