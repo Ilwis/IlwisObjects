@@ -209,42 +209,56 @@ cd ..</Command>
 if errorlevel 1 goto VCEnd
  copy /y ..\libraries\debug\extensions\pythonapi37\_ilwisobjects.pyd ..\output\debug\bin\extensions\pythonapi37
 if errorlevel 1 goto VCEnd
- copy /y $(MSBuildProjectDirectory)\$(MSBuildProjectName)\ilwisobjects.py ..\output\debug\bin\extensions\pythonapi37
+ copy /y $(MSBuildProjectDirectory)\pythonapi\ilwisobjects.py ..\output\debug\bin\extensions\pythonapi37
 if errorlevel 1 goto VCEnd
- copy /y $(MSBuildProjectDirectory)\$(MSBuildProjectName)\test.py ..\output\debug\bin\extensions\pythonapi37
+ copy /y $(MSBuildProjectDirectory)\pythonapi\test.py ..\output\debug\bin\extensions\pythonapi37
 if errorlevel 1 goto VCEnd
- copy /y $(MSBuildProjectDirectory)\$(MSBuildProjectName)\README ..\output\debug\bin\extensions\pythonapi37
+ copy /y $(MSBuildProjectDirectory)\pythonapi\README ..\output\debug\bin\extensions\pythonapi37
 if errorlevel 1 goto VCEnd
- copy /y $(MSBuildProjectDirectory)\$(MSBuildProjectName)\UPDATE ..\output\debug\bin\extensions\pythonapi37
+ copy /y $(MSBuildProjectDirectory)\pythonapi\UPDATE ..\output\debug\bin\extensions\pythonapi37
 if errorlevel 1 goto VCEnd
- copy /y $(MSBuildProjectDirectory)\$(MSBuildProjectName)\CHANGELOG ..\output\debug\bin\extensions\pythonapi37
+ copy /y $(MSBuildProjectDirectory)\pythonapi\CHANGELOG ..\output\debug\bin\extensions\pythonapi37
 if errorlevel 1 goto VCEnd
- copy /y /b $(MSBuildProjectDirectory)\$(MSBuildProjectName)\paths.py + ..\output\debug\bin\extensions\pythonapi37\ilwisobjects.py ..\output\debug\bin\extensions\pythonapi37\temp.py
+ copy /y /b $(MSBuildProjectDirectory)\pythonapi\paths.py + ..\output\debug\bin\extensions\pythonapi37\ilwisobjects.py ..\output\debug\bin\extensions\pythonapi37\temp.py
 if errorlevel 1 goto VCEnd
  move /y ..\output\debug\bin\extensions\pythonapi37\temp.py ..\output\debug\bin\extensions\pythonapi37\__init__.py
 if errorlevel 1 goto VCEnd
  del /f ..\output\debug\bin\extensions\pythonapi37\ilwisobjects.py
 if errorlevel 1 goto VCEnd
-</Command>
-      <Message>if not exist ..\output\debug\bin\extensions\pythonapi mkdir ..\output\debug\bin\extensions\pythonapi
- copy /y ..\libraries\debug\extensions\pythonapi\_ilwisobjects.pyd ..\output\debug\bin\extensions\pythonapi
- copy /y ..\projects\pythonapi\ilwisobjects.py ..\output\debug\bin\extensions\pythonapi
- copy /y ..\projects\pythonapi\test.py ..\output\debug\bin\extensions\pythonapi
- copy /y ..\projects\pythonapi\README ..\output\debug\bin\extensions\pythonapi
- copy /y ..\projects\pythonapi\UPDATE ..\output\debug\bin\extensions\pythonapi
- copy /y ..\projects\pythonapi\CHANGELOG ..\output\debug\bin\extensions\pythonapi
- copy /y /b ..\projects\pythonapi\paths.py + ..\output\debug\bin\extensions\pythonapi\ilwisobjects.py ..\output\debug\bin\extensions\pythonapi\temp.py
- move /y ..\output\debug\bin\extensions\pythonapi\temp.py ..\output\debug\bin\extensions\pythonapi\__init__.py
- del /f ..\output\debug\bin\extensions\pythonapi\ilwisobjects.py
- if not exist ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis mkdir ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
- copy /y ..\projects\pythonapi\ilwisobjects.py ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
- copy /y ..\projects\pythonapi\test.py ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
- copy /y ..\projects\pythonapi\README ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
- copy /y ..\projects\pythonapi\UPDATE ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
- copy /y ..\projects\pythonapi\CHANGELOG ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if not exist ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis mkdir ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if errorlevel 1 goto VCEnd
+ copy /y $(MSBuildProjectDirectory)\pythonapi\ilwisobjects.py ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if errorlevel 1 goto VCEnd
+ copy /y $(MSBuildProjectDirectory)\pythonapi\test.py ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if errorlevel 1 goto VCEnd
+ copy /y $(MSBuildProjectDirectory)\pythonapi\README ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if errorlevel 1 goto VCEnd
+ copy /y $(MSBuildProjectDirectory)\pythonapi\UPDATE ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if errorlevel 1 goto VCEnd
+ copy /y $(MSBuildProjectDirectory)\pythonapi\CHANGELOG ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if errorlevel 1 goto VCEnd
  copy /y ..\output\debug\bin\extensions\pythonapi\_ilwisobjects.pyd ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis
+if errorlevel 1 goto VCEnd
  move /y ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis\ilwisobjects.py ..\output\debug\bin\extensions\pythonscript\python\Lib\site-packages\ilwis\__init__.py
-</Message>
+if errorlevel 1 goto VCEnd
+
+xcopy "$(TargetPath)" ..\output\debug\ilwispy37\ilwis\* /y
+echo import os&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo import sys&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo path = r'$(PYTHONROOT37)'&gt;&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo os.environ["PATH"] = path + os.pathsep + os.environ["PATH"]&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo sys.path.append(path)&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo path = os.path.dirname(__file__)&gt;&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo os.environ["PATH"] = path + os.pathsep + os.environ["PATH"]&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo sys.path.append(path)&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo path = os.path.normpath(r'$(LocalDebuggerWorkingDirectory)../output/debug/bin/')&gt;&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo os.environ["PATH"] = path + os.pathsep + os.environ["PATH"]&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo sys.path.append(path)&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo path = path.replace('\\','/') + '/'&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+type $(MSBuildProjectDirectory)\pythonapi\ilwisobjects.py &gt;&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+copy ..\temp\GeneratedFiles\Debug\pythonapi\temp.py ..\output\debug\ilwispy37\ilwis\__init__.py /y</Command>
+      <Message>
+      </Message>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>..\external\programs\swigwin\swig.exe -python -c++ pythonapi\ilwisobjects.i</Command>

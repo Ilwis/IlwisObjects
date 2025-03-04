@@ -106,7 +106,7 @@
       <ExceptionHandling>Sync</ExceptionHandling>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <Optimization>MaxSpeed</Optimization>
-      <PreprocessorDefinitions>_WINDOWS;UNICODE;WIN32;WIN64;hydroflow_LIBRARY;QT_NO_DEBUG;QT_PLUGIN;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDOWS;UNICODE;WIN32;WIN64;hydroflow_LIBRARY;QT_NO_DEBUG;QT_PLUGIN;NDEBUG;_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessToFile>false</PreprocessToFile>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -163,7 +163,7 @@ xcopy "$(TargetPath)" ..\output\release\ilwispy\ilwis\ilwisobjects\extensions\$(
       <ExceptionHandling>Sync</ExceptionHandling>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_WINDOWS;UNICODE;WIN32;WIN64;hydroflow_LIBRARY;QT_PLUGIN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDOWS;UNICODE;WIN32;WIN64;hydroflow_LIBRARY;QT_PLUGIN;_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessToFile>false</PreprocessToFile>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>

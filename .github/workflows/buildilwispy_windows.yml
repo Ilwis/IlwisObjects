@@ -78,7 +78,7 @@ jobs:
            D:
            mkdir D:/develop
            cd D:/develop
-           git clone https://github.com/52North/IlwisObjects.git
+           git clone https://github.com/Ilwis/IlwisObjects.git
     - name: fetch external libraries
       run: |
            D:
