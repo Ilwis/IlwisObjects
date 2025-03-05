@@ -3,6 +3,7 @@ import setuptools
 from setuptools.dist import Distribution
 import shutil
 import platform
+from pathlib import Path
 
 def package_files(directory):
     paths = []
@@ -11,8 +12,11 @@ def package_files(directory):
             paths.append(os.path.join('..', path, filename))
 	
     return paths
+
 basepath = './ilwis'
 extra_files = package_files(basepath)
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
 def wheel_name(**kwargs):
     # create a fake distribution from arguments
@@ -56,14 +60,25 @@ setup = setuptools.setup(
   
     # Use one of the below approach to define package and/or module names:
 
-
 	author="M.L.Schouwenburg",
     author_email="m.l.schouwenburg@utwente.nl",
     description="Extension giving access to the Ilwisobjects geo library for spatial data and processing",
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     packages=setuptools.find_packages(include=['ilwis', 'ilwis.*']),
-    classifiers=[
+    classifiers=[ # https://pypi.org/classifiers/
 		'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX :: Linux',
     ],

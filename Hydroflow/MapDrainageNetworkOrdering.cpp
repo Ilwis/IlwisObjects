@@ -40,7 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "geos/geom/CoordinateSequence.h"
 #include "geos/geom/CoordinateSequenceFactory.h"
 #include "geos/geom/GeometryFactory.h"
-#include "geos/geom/linestring.h"
+#include "geos/geom/LineString.h"
 #include "ellipsoid.h"
 #include "itemdomain.h"
 #include "thematicitem.h"
@@ -1161,7 +1161,7 @@ void DrainageNetworkOrdering::FillTableRecords()
 			_outputTable->setCell("UpstreamElevation", record, QVariant(rUpstreamHeight));
 			if (rec.DownstreamLink == 0)
 				rec.DownstreamLink = iUNDEF;
-			_outputTable->setCell("DownstreamLinkID", record, QVariant(rec.DownstreamLink));
+			_outputTable->setCell("DownstreamLinkID", record, QVariant((int)rec.DownstreamLink));
 
 			pxl = rec.DownstreamCoord;
 			Coordinate c2 = _inRaster->georeference()->pixel2Coord(pxl);
@@ -1174,9 +1174,9 @@ void DrainageNetworkOrdering::FillTableRecords()
 			double rDrop = rUpstreamHeight - rDownstreamHeight;
 			_outputTable->setCell("ElevationDifference", record, QVariant(rDrop));
 
-			_outputTable->setCell("Strahler", record, QVariant(rec.Strahler));
+			_outputTable->setCell("Strahler", record, QVariant((int)rec.Strahler));
 
-			_outputTable->setCell("Shreve", record, QVariant(rec.Streve));
+			_outputTable->setCell("Shreve", record, QVariant((int)rec.Streve));
 			_outputTable->setCell("Length", record, QVariant(rec.Length));
 			double rStraightLength = rDistance(c1, c2);
 			_outputTable->setCell("StraightLength", record, QVariant(rStraightLength));

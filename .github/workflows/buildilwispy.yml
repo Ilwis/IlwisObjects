@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: ['3.8', '3.10']
+        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
 
     steps:
     - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
     - name: install python packages
       run: |
            python3 -m pip install --upgrade pip
-           python3 -m pip install wheel setuptools
+           python3 -m pip install wheel setuptools twine
     - name: patch
       run: |
            python3 patch_pythonapi_linux.py
@@ -61,3 +61,10 @@ jobs:
            qmake -o Makefile ilwisobjects.pro
     - name: make
       run: make -f Makefile
+    - name: publish
+      env:
+           TWINE_USERNAME: __token__
+           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      run: |
+           cd ../output/gccx64_/release/python_whl
+           python3 -m twine upload --repository testpypi *.whl --verbose

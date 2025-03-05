@@ -5,6 +5,7 @@ set WHEELFOLDER=..\..\output\release\%3
 rd /q/s %WHEELFOLDER%
 mkdir %WHEELFOLDER%
 copy setup.py %WHEELFOLDER%
+copy README.md %WHEELFOLDER%
 copy ..\core\version.cpp %WHEELFOLDER%
 cd %WHEELFOLDER%
 xcopy /s ..\%EXTENSIONFOLDER% .
@@ -18,3 +19,4 @@ move dist\*.whl .
 rd dist
 del setup.py
 del version.cpp
+del README.md

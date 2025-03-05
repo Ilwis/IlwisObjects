@@ -94,7 +94,7 @@ QString IlwisContext::setCacheLocation(const QString loc){
     QDir cacheDir(locat);
 
     if (!cacheDir.exists()){
-        cacheDir.mkpath(loc);
+        cacheDir.mkpath(locat);
     }
     QStringList files = cacheDir.entryList(QStringList() << "gridblock*.*" << "osm*.png", QDir::Files);
     for(QString file : files)

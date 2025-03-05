@@ -43,7 +43,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "geos/geom/CoordinateSequence.h"
 #include "geos/geom/CoordinateSequenceFactory.h"
 #include "geos/geom/GeometryFactory.h"
-#include "geos/geom/linestring.h"
+#include "geos/geom/LineString.h"
 #include "coordinatedomain.h"
 #include "ellipsoid.h"
 #include "itemdomain.h"
