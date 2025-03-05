@@ -308,6 +308,7 @@ bool VariableThresholdComputationBase::executeReliefThresholdComputation()
     while (iterPos != inEnd)
     {
         Pixel pxl = iterPos.position();
+        double a = *iterOut(pxl);
         *iterRelief(pxl) = *iterOut(pxl);
         iterPos++;
     }
@@ -414,7 +415,7 @@ quint64 VariableThresholdComputation::createMetadata()
 {
     OperationResource operation({ "ilwis://operations/VariableThresholdComputation" });
     operation.setSyntax("variablethreshold(inputraster,filtersize,NrOfClasses,UpperBounds_and_ThresholdVals)");
-    operation.setDescription(TR("generate a raster containing various stream threshold values that can be used in the Drainage networ exaction operation"));
+    operation.setDescription(TR("generate a raster containing various stream threshold values that can be used in the Drainage network exaction operation"));
 
     operation.setInParameterCount({ 4 });
     operation.addInParameter(0, itRASTER, TR("rastercoverage"), TR("input raster DEM with numeric domain"));
