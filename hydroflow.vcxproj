@@ -13,11 +13,13 @@
   <ItemGroup>
     <ClCompile Include="Hydroflow\hydroflow_module.cpp" />
     <ClCompile Include="Hydroflow\MapCatchmentExtraction.cpp" />
+    <ClCompile Include="Hydroflow\MapCatchmentMerge.cpp" />
     <ClCompile Include="Hydroflow\MapDrainageNetworkExtraction.cpp" />
     <ClCompile Include="Hydroflow\MapDrainageNetworkOrdering.cpp" />
     <ClCompile Include="Hydroflow\MapFillSinks.cpp" />
     <ClCompile Include="Hydroflow\MapFlowAccumulation.cpp" />
     <ClCompile Include="Hydroflow\MapFlowDirection.cpp" />
+    <ClCompile Include="Hydroflow\MapOverlandFlowLength.cpp" />
     <ClCompile Include="Hydroflow\MapVariableThresholdComputation.cpp" />
     <ClCompile Include="Hydroflow\normalizerelativedem.cpp" />
     <ClCompile Include="Hydroflow\relativedem.cpp" />
@@ -28,11 +30,13 @@
   <ItemGroup>
     <ClInclude Include="Hydroflow\hydroflow_global.h" />
     <ClInclude Include="Hydroflow\MapCatchmentExtraction.h" />
+    <ClInclude Include="Hydroflow\MapCatchmentMerge.h" />
     <ClInclude Include="Hydroflow\MapDrainageNetworkExtraction.h" />
     <ClInclude Include="Hydroflow\MapDrainageNetworkOrdering.h" />
     <ClInclude Include="Hydroflow\MapFillSinks.h" />
     <ClInclude Include="Hydroflow\MapFlowAccumulation.h" />
     <ClInclude Include="Hydroflow\MapFlowDirection.h" />
+    <ClInclude Include="Hydroflow\MapOverlandFlowLength.h" />
     <ClInclude Include="Hydroflow\MapVariableThresholdComputation.h" />
     <ClInclude Include="Hydroflow\normalizerelativedem.h" />
     <ClInclude Include="Hydroflow\relativedem.h" />
