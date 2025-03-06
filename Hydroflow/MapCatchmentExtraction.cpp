@@ -48,6 +48,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "ellipsoid.h"
 #include "itemdomain.h"
 #include "thematicitem.h"
+#include "geos/geom/Point.h"
+#include "geos/geom/Polygon.h"
+
+//#include "raster2polygon.h"
 
 
 #include "MapCatchmentExtraction.h"
@@ -141,21 +145,105 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 
     bool resource =  executeCatchmentExtraction();
 
+	if (resource && ctx != 0) 
+	{
+		if (_outCatchmentRaster.isValid()) {
+			_outCatchmentRaster->setAttributes(_outputTable);
+			std::string connectivity = "8";
+			std::string output_name = "polygon_object_" + QString::number(Ilwis::Identity::newAnonymousId()).toStdString();
+			QString expr = QString::fromStdString(output_name + "=raster2polygon(" + _outCatchmentRaster->name().toStdString() + "," + connectivity + ",true)");
+			Ilwis::commandhandler()->execute(expr, ctx, symTable);
+			Ilwis::Symbol result = symTable.getSymbol(ctx->_results[0]);
+			if (result._type == itFEATURE && result._var.canConvert<Ilwis::IFeatureCoverage>()) {
 
-   /* executeFillSink();
+				_outputfeatures = Ilwis::IFeatureCoverage(result._var.value<Ilwis::IFeatureCoverage>());
+				quint32 count = _outputfeatures->featureCount();
+				quint32 recordcount = _outputTable->recordCount();
+				for (int rec = 0; rec < count; ++rec) {
+					SPFeatureI& feature = _outputfeatures->feature(rec);
+					quint64 id = feature->featureid();
+					geos::geom::Polygon* polygon = dynamic_cast<geos::geom::Polygon*>(feature->geometry().get());
+					if (polygon) {
+						double area = polygon->getArea();
+						double length = polygon->getLength();
+						geos::geom::Point* centroid = polygon->getInteriorPoint();
+						Coordinate crd;
+						crd.x = centroid->getX();
+						crd.y = centroid->getY();
+						crd.z = 0;
+						QString crdstr = CoordinateFormatString(crd.toString());
+						_outputTable->setCell("CenterCatchment", rec, QVariant(crdstr));
+						_outputTable->setCell("Perimeter", rec, length);
+						_outputTable->setCell("CatchmentArea", rec, area);
 
-    bool resource = true;
-    if (resource && ctx != 0) {
-        QVariant value;
-        value.setValue<IRasterCoverage>(_outRaster);
-        ctx->setOutput(symTable, value, _outRaster->name(), itRASTER, _outRaster->resource());
-    }*/
+						AttUpstreamLink vULs(m_vvUpstreamLinks[rec]);
 
-	QVariant value;
-	value.setValue<IFeatureCoverage>(_outputfeatures);
-	logOperation(_outputfeatures, _expression, { _inDrngOrderRaster });
-	ctx->addOutput(symTable, value, _outputfeatures->name(), itFEATURE, _outputfeatures->resource());
-	_outputfeatures->setAttributes(_outputTable);
+						if (vULs.UpstreamLink.size() == 1 && vULs.UpstreamLink[0] == 0)
+						{
+							_outputTable->setCell("TotalUpstreamArea", rec, area);
+							_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, area);
+						}
+						else
+						{
+							_outputTable->setCell("TotalUpstreamArea", rec, rUNDEF);
+							_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, rUNDEF);
+						}
+
+						_outputfeatures->attributeTable()->setCell("CenterCatchment", rec, QVariant(crdstr));
+						_outputfeatures->attributeTable()->setCell("Perimeter", rec, length);
+						_outputfeatures->attributeTable()->setCell("CatchmentArea", rec, area);
+
+					}
+
+					/*		Ilwis::IFeatureCoverage polygons(result._var.value<Ilwis::IFeatureCoverage>());
+							quint32 count = polygons->featureCount();
+							quint32 recordcount = _outputTable->recordCount();
+							for (int rec = 0; rec < count; ++rec) {
+								SPFeatureI& feature = polygons->feature(rec);
+								quint64 id = feature->featureid();
+								geos::geom::Polygon* polygon = dynamic_cast<geos::geom::Polygon*>(feature->geometry().get());
+								if (polygon) {
+									double area = polygon->getArea();
+									double length = polygon->getLength();
+									geos::geom::Point * centroid = polygon->getInteriorPoint();
+									Coordinate crd;
+									crd.x = centroid->getX();
+									crd.y = centroid->getY();
+									crd.z = 0;
+									QString crdstr = CoordinateFormatString(crd.toString());
+									_outputTable->setCell("CenterCatchment", rec, QVariant(crdstr));
+									_outputTable->setCell("Perimeter", rec, length);
+									_outputTable->setCell("CatchmentArea", rec, area);
+
+									AttUpstreamLink vULs(m_vvUpstreamLinks[rec]);
+
+									if (vULs.UpstreamLink.size() == 1 && vULs.UpstreamLink[0] == 0)
+										_outputTable->setCell("TotalUpstreamArea", rec, area);
+									else
+										_outputTable->setCell("TotalUpstreamArea", rec, rUNDEF);
+								}*/
+				}
+			}
+
+			if (_outCatchmentRaster.isValid())
+			{
+				QVariant outraster;
+				outraster.setValue<IRasterCoverage>(_outCatchmentRaster);
+				logOperation(_outCatchmentRaster, _expression, { _inDrngOrderRaster, _inFldRaster });
+				ctx->addOutput(symTable, outraster, _outCatchmentRaster->name(), itRASTER, _outCatchmentRaster->resource());
+			}
+
+			if (_outputfeatures.isValid())
+			{
+				_outputfeatures->setAttributes(_outputTable);
+				QVariant value;
+				value.setValue<IFeatureCoverage>(_outputfeatures);
+				logOperation(_outputfeatures, _expression, { _inDrngOrderRaster });
+				ctx->addOutput(symTable, value, _outputfeatures->name(), itFEATURE, _outputfeatures->resource());
+			}
+		}
+		m_vvUpstreamLinks.resize(0);
+	}
 
 	return resource;
 }
@@ -165,31 +253,32 @@ bool MapCatchmentExtraction::executeCatchmentExtraction()
     bool ret(true);
 
     quint64 copylist = itRASTERSIZE | itENVELOPE | itINTEGER;
-    _iterEmptyRaster = OperationHelperRaster::initialize(_inDrngOrderRaster.as<IlwisObject>(), itRASTER, copylist);
     _flagRaster = OperationHelperRaster::initialize(_inDrngOrderRaster.as<IlwisObject>(), itRASTER, copylist);
 
     PixelIterator iterFlag = PixelIterator(_flagRaster, BoundingBox(), PixelIterator::fXYZ);
-    PixelIterator iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-    PixelIterator iterDEM = PixelIterator(_inDrngOrderRaster, BoundingBox(), PixelIterator::fXYZ);
+    PixelIterator iterInDrng = PixelIterator(_inDrngOrderRaster, BoundingBox(), PixelIterator::fXYZ);
     PixelIterator iterFld = PixelIterator(_inFldRaster, BoundingBox(), PixelIterator::fXYZ);
 
 
+	NumericStatistics stats;
+	stats.calculate(iterInDrng, iterInDrng.end(), NumericStatistics::pBASIC);
+	double maxDrainage = stats[NumericStatistics::pMAX];
+	iterInDrng = PixelIterator(_inDrngOrderRaster, BoundingBox(), PixelIterator::fXYZ); //rewind
+
     PixelIterator iterOut = PixelIterator(_outCatchmentRaster, BoundingBox(), PixelIterator::fXYZ);
-    PixelIterator inEnd = iterDEM.end();
+    PixelIterator inEnd = iterInDrng.end();
 
-    while (iterPos != inEnd)
+    while (iterInDrng != inEnd)
     {
-        Pixel pxl = iterPos.position();
+        Pixel pxl = iterInDrng.position();
         pxl.z = 0;
-       
-        if (IsEdgeCell(pxl) || abs(*iterFld(pxl)) == iUNDEF)
-            *iterFld(pxl) = 0;
-        *iterFlag[pxl] = iUNDEF;
 
-        iterPos++;
+		*iterFlag[pxl] = iUNDEF;
+		if (IsEdgeCell(pxl) || *iterFld(pxl) == rUNDEF)
+			*iterFld(pxl) = 0;
+
+		iterInDrng++;
     }
-
-    iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
 
     GetAttributes();
 
@@ -214,19 +303,88 @@ bool MapCatchmentExtraction::executeCatchmentExtraction()
 		}
 	}
 
-	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
 	iterFlag = PixelIterator(_flagRaster, BoundingBox(), PixelIterator::fXYZ);
 	iterOut = PixelIterator(_outCatchmentRaster, BoundingBox(), PixelIterator::fXYZ);
 
-    while (iterPos != inEnd)
-    {
-        *iterOut = *iterFlag;
-        *iterFlag++;
-        *iterOut++;
-    }
-
+	while (iterOut != inEnd)
+	{
+		*iterOut = (int)*iterFlag;
+		*iterOut = (*iterOut != 0) ? (*iterOut - 1) : rUNDEF;
+		*iterFlag++;
+		*iterOut++;
+	}
 	m_vRecords.resize(0);
 	SetAttributeTable();
+
+
+
+	//bool canConnect;
+	//NetworkPoint previousPoint;
+	//std::vector<PrevLinePoint> previousLine(_outCatchmentRaster->size().xsize());
+	//BlockIterator iterBlock(_outCatchmentRaster, Size<>(3, 3, 1), BoundingBox(), { 1,1,1 }, true);
+	//BlockIterator end = iterBlock.end();
+	//while (iterBlock != end) {
+	//	auto block = (*iterBlock).to3DVector();
+	//	if (block.size() == 1)
+	//		continue;
+	//	GridBlock& blockOut = *iterBlock;
+
+	//	auto currentValue = block[1][1][0];
+	//	auto pCenter = (*iterBlock).position();
+	//	if (currentValue != block[0][1][0] && currentValue != block[0][0][0]) {
+	//		// temporary points are points that do not end up in the network but are in _previousLine. As they represent a
+	//		// intermediate point on a straight vertical line segment they have no place in the final network but are needed
+	//		// to give the _previousline the correct linkage.
+	//		bool  isTempPoint = block[0][0][0] != currentValue &&
+	//			block[0][0][0] == block[0][2][0] &&
+	//			currentValue == block[0][1][0];
+	//		if (canConnect) {
+	//			previousPoint = makeConnection(pCenter, isTempPoint, previousLine);
+	//		}
+	//		canConnect = true;
+	//	}
+	//	// if the topmid value equals the current value we are looking at a point in the middle of a filled area. so no lines we be drawn here
+	//	if (block[1][1][0] == currentValue) {
+	//		canConnect = false;
+	//		previousPoint = NetworkPoint();
+	//	}
+	//}
+
+
+
+
+	//Check the type of coordinate system  
+	//if (fLatLonCoords())
+	//{
+	//	//Transform the map to Lambert Cylind EqualArea projection coordinate system needed to be able
+	//	//to calculate the perimeter and area parameters
+	//	//LAMCYL is a pre-defined coordinate system, should be placed in the ILWIS system directory
+	//	FileName fnTmpTFPol(fnObj, ".mpa");
+	//	fnTmpTFPol = FileName::fnUnique(fnTmpTFPol);
+	//	//String sExprPMT("PolygonMapTransform(%S, %S, %g)", fnPol.sFullPathQuoted(false), String("lamcyl"), 0.000000); 
+	//	CoordSystem csy = csyLamCyl(fnTmpTFPol);
+	//	csy->Store(); // explicit Store(), due to different behavior between Debug and Release build!! (csyLamCyl will auto-store when the internal csy object is destructed (as it is supposed to do) in the debug build, but not in the release build)
+	//	csy->fErase = true;
+	//	String sExprPMT("PolygonMapTransform(%S, %S, %g)", fnPol.sFullPathQuoted(false), csy->sName(), 0.000000);
+	//	PolygonMap polTmpTFMap;
+	//	polTmpTFMap = PolygonMap(fnTmpTFPol, sExprPMT);
+	//	polTmpTFMap->Calc();
+	//	polTmpTFMap->fErase = true;
+	//	//***a temporary histogram file needed to retrieve attributes about Area and Perimeter   
+	//	fnTmpHsa = FileName(fnTmpTFPol, ".hsa");
+	//	sExprTbl = String("TableHistogramPol(%S)", fnTmpTFPol.sFullPathQuoted());
+	//	tblHsa = Table(fnTmpHsa, sExprTbl);
+	//}
+	//else
+	//{
+	//	fnTmpHsa = FileName(fnObj, ".hsa");
+	//	sExprTbl = String("TableHistogramPol(%S)", fnPol.sFullPathQuoted());
+	//	tblHsa = Table(fnTmpHsa, sExprTbl);
+	//}
+
+	ComputeCatchmentAttributes();
+	ComputeCenterDrainage();
+
 
     return ret;
 }
@@ -246,12 +404,6 @@ Ilwis::OperationImplementation::State MapCatchmentExtraction::prepare(ExecutionC
     QString flowraster = _expression.parm(1).value();
     QString outcatchment = _expression.parm(2).value();
 
-    IRasterCoverage _inDngOrderRaster;
-    IRasterCoverage _inFldRaster;
-
-    IRasterCoverage _outCatchmentRaster;
-    IRasterCoverage _iterEmptyRaster;
-
     if (!_inDrngOrderRaster.prepare(drnetwkraster, itRASTER)) {
         ERROR2(ERR_COULD_NOT_LOAD_2, drnetwkraster, "");
         return sPREPAREFAILED;
@@ -262,8 +414,22 @@ Ilwis::OperationImplementation::State MapCatchmentExtraction::prepare(ExecutionC
         return sPREPAREFAILED;
     }
 
-    int copylist = itRASTERSIZE | itENVELOPE | itCOORDSYSTEM | itGEOREF;
-    _outCatchmentRaster = OperationHelperRaster::initialize(_inDngOrderRaster.as<IlwisObject>(), itRASTER, copylist);
+	// Check if we are dealing with FlowDirection.dom; if yes, then recalc raw vals of flow direction map. We also allow Value maps with values 0 til 8 (0 = flat / undef, 1 til 8 are the directions).
+	IDomain itemdom = _inFldRaster->datadefRef().domain();
+	if (itemdom.isValid() && hasType(itemdom->valueType(), itTHEMATICITEM | itNUMERICITEM | itTIMEITEM | itNAMEDITEM))
+	{
+		_inFldRaster.set(_inFldRaster->clone());
+		PixelIterator iterFld = PixelIterator(_inFldRaster, BoundingBox(), PixelIterator::fXYZ);
+		PixelIterator iterFldEnd = iterFld.end();
+		while (iterFld != iterFldEnd)
+		{
+			*iterFld = (*iterFld != rUNDEF) ? (*iterFld + 1) : 0; // shift the values, to make them the same as ilwis3 (0 is undef, 1..8 are the direction)
+			++iterFld;
+		}
+	}
+
+	int copylist = itRASTERSIZE | itENVELOPE | itCOORDSYSTEM | itGEOREF;
+    _outCatchmentRaster = OperationHelperRaster::initialize(_inDrngOrderRaster.as<IlwisObject>(), itRASTER, copylist);
     if (!_outCatchmentRaster.isValid()) {
         ERROR1(ERR_NO_INITIALIZED_1, "output rastercoverage");
         return sPREPAREFAILED;
@@ -272,20 +438,28 @@ Ilwis::OperationImplementation::State MapCatchmentExtraction::prepare(ExecutionC
     _xsize = _inDrngOrderRaster->size().xsize();
     _ysize = _inDrngOrderRaster->size().ysize();
 
-    IDomain dom("code=domain:value");
-    _outCatchmentRaster->datadefRef() = DataDefinition(dom);
+  
+	if (_outCatchmentRaster.isValid())
+	{
+		QString catchName = "CatchID";
+		_outDomain.prepare();
+		_idrange = new NamedIdentifierRange();
+		_outDomain->range(_idrange);
 
-    for (quint32 i = 0; i < _outCatchmentRaster->size().zsize(); ++i) {
-        QString index = _outCatchmentRaster->stackDefinition().index(i);
-        _outCatchmentRaster->setBandDefinition(index, DataDefinition(dom));
-    }
+		DataDefinition def(_outDomain);
+		_outCatchmentRaster->datadefRef() = def;
+		for (int band = 0; band < _outCatchmentRaster->size().zsize(); ++band) {
+			_outCatchmentRaster->datadefRef(band) = def;
+		}
+		return sPREPARED;
+	}
 
 	_outputfeatures.prepare(QString(INTERNAL_CATALOG + "/%1").arg(outputName));
 
-	_inputgrf = _inDngOrderRaster->georeference();
+	_inputgrf = _inDrngOrderRaster->georeference();
 	_csy = _inputgrf->coordinateSystem();
 	_outputfeatures->coordinateSystem(_csy);
-	Envelope env = _inDngOrderRaster->georeference()->envelope();
+	Envelope env = _inDrngOrderRaster->georeference()->envelope();
 	_outputfeatures->envelope(env);
 
     return sPREPARED;
@@ -294,19 +468,20 @@ Ilwis::OperationImplementation::State MapCatchmentExtraction::prepare(ExecutionC
 quint64 MapCatchmentExtraction::createMetadata()
 {
     OperationResource operation({ "ilwis://operations/MapCatchmentExtraction" });
-    operation.setSyntax("MapCatchmentExtraction(DrainageNetworkOrderMap,FlowDiractionMap)");
-    operation.setDescription(TR("Extract catchment based on DrainageNetworkOrder Map and FlowDiraction Map"));
+    operation.setSyntax("MapCatchmentExtraction(DrainageNetworkOrderingMap,FlowDiractionMap)");
+    operation.setDescription(TR("Constructs catchments;a catchment will be calculated for each stream found in the Drainage Network Ordering map"));
     operation.setInParameterCount({ 2 });
-    operation.addInParameter(0, itRASTER, TR("Drainage Net Work Ordering Map"), TR("input raster DEM with numeric domain"));
-    operation.addInParameter(1, itRASTER, TR("Flow Direction Map"), TR("input raster DEM with numeric domain"));
+    operation.addInParameter(0, itRASTER, TR("Drainage NetWork Ordering Map"), TR("input raster that is the output of a previous Drainage Network Ordering operation"));
+    operation.addInParameter(1, itRASTER, TR("Flow Direction Map"), TR("input raster that is the output of a previous Flow Direction operation"));
     operation.parameterNeedsQuotes(1);
 
-	operation.setOutParameterCount({ 3 });
+	operation.setOutParameterCount({ 1 });
 
-	operation.addOutParameter(0, itTABLE, TR("output table"), TR("output table with the results of the catchment extraction"));
+	operation.addOutParameter(0, itRASTER, TR("output raster"), TR("output raster with the results of the catchment extraction"));
 	operation.addOutParameter(1, itPOLYGON, TR("output polygon"), TR("output polygon with the results of the catchment extraction"));
-	operation.addOutParameter(2, itRASTER, TR("output raster"), TR("output raster with the results of the catchment extraction"));
-	operation.setKeywords("catchment, extraction, raster,table, polygon");
+	//operation.addOutParameter(2, itTABLE, TR("output table"), TR("output table with the results of the catchment extraction"));
+
+	operation.setKeywords("raster,table,polygon,catchment, extraction");
 
     mastercatalog()->addItems({ operation });
     return operation.id();
@@ -320,14 +495,8 @@ void MapCatchmentExtraction::SetAttributeTable()
 
 	IFlatTable newTable;
 	newTable.prepare();
+	newTable->addColumn(_outCatchmentRaster->primaryKey(), _outDomain);
 
-	//newTable->addColumn("StreamID", _orderDomain);
-	/*newTable->addColumn("UpstreamLinkID", IlwisObject::create<IDomain>("text"), true);
-	newTable->addColumn("UpstreamCoord", IlwisObject::create<IDomain>("text"));
-	newTable->addColumn("UpstreamElevation", IlwisObject::create<IDomain>("value"));
-	newTable->addColumn("DownstreamLinkID", IlwisObject::create<IDomain>("value"));*/
-
-	
 	_outputTable = newTable;
 
 }
@@ -345,9 +514,7 @@ bool MapCatchmentExtraction::IsEdgeCell(Pixel pxl)
 
 bool MapCatchmentExtraction::fLatLonCoords()
 {
-	/*CoordSystemLatLon* csll = mp->cs()->pcsLatLon();
-	return (0 != csll);*/
-	return false;
+	return _inDrngOrderRaster->coordinateSystem()->isLatLon();
 }
 
 //void MapCatchmentExtraction::CompitableGeorefs(FileName fn, Map mp1, Map mp2)
@@ -377,24 +544,25 @@ void MapCatchmentExtraction::GetAttributes()
 
 	long iSize = tblAtt->recordCount();
 	AttCols ac;
-	for (long i = 1; i <= iSize; i++) 
+	for (long i = 0; i < iSize; i++) 
 	{
 		QVariant val = colPrimaryKey[i];
-		ac.DrainageID = val.toInt();
-		if (ac.DrainageID == iUNDEF)
+		ac.DrainageID = val.toInt()+1;
+		if (ac.DrainageID == iUNDEF )
 			continue;
 		ac.DownstreamLink = colDownstreamLink[i].toInt();
 		if (ac.DownstreamLink == 0)
-			continue;
+			ac.DownstreamLink = iUNDEF;
+
 		QString coordsStr = colDownstreamCoord[i].toString();
 
 		if (coordsStr.isEmpty())
 			continue;
 
-		coordsStr.replace("(", " ");
-		coordsStr.replace(")", " ");
+		coordsStr.replace("{", "");
+		coordsStr.replace("}", "");
 
-		QStringList coodrs = coordsStr.split(",");
+		QStringList coodrs = coordsStr.split(" ");
 
 		QString xstr = coodrs[0];
 		QString ystr = coodrs[1];
@@ -405,18 +573,19 @@ void MapCatchmentExtraction::GetAttributes()
 		crd.z = 0;
 		ac.DownstreamCoord = _inDrngOrderRaster->georeference()->coord2Pixel(crd);
 
-		SplitUpStreamLink(colUpstreamLink[i].toString(), ac.UpstreamLink);
+		SplitString(colUpstreamLink[i].toString(), QString(","), ac.UpstreamLink);
 		m_vRecords.push_back(ac);
+		m_vDrnIDs.push_back(ac.DrainageID);
 	}
 
 }
 
 
-void MapCatchmentExtraction::SplitUpStreamLink(QString s, std::vector<long>& results)
+void MapCatchmentExtraction::SplitString(QString s, QString mid, std::vector<long>& results)
 {
-	s.replace("(", " ");
-	s.replace(")", " ");
-	QStringList strlst = s.split(",");
+	s.replace("{", "");
+	s.replace("}", "");
+	QStringList strlst = s.split(mid);
 
 	results.clear();
 	for (unsigned int i = 0; i < strlst.size(); i++)
@@ -429,112 +598,150 @@ void MapCatchmentExtraction::SplitUpStreamLink(QString s, std::vector<long>& res
 
 void MapCatchmentExtraction::ComputeCatchmentAttributes()
 {
-	//trq.SetText(TR("Create merged catchment attribute table"));
-
 	////Retrieve attributes from drainage network attribute table needed 
 	////for updating the catchment attributes  
-	//Table tblAtt = mp->tblAtt();
-	//Column colUpstreamLink = tblAtt->col(sUpstreamLink);
-	//Column colDownstreamLink = tblAtt->col(sDownstreamLink);
-	//Column colFlowLength = tblAtt->col(String("Length"));
 
-	//DomainSort* pdsrt = colUpstreamLink->dmKey()->pdsrt();
-	//if (!pdsrt)
-	//	throw ErrorObject(TR("Source map must have domain class or id"));
-	//long iSize = pdsrt->iSize();
+	ITable tblAtt = _inDrngOrderRaster->attributeTable();
 
-	////Define catchment attributes
-	//Column cDrainageID = m_tbl->colNew(String("DrainageID"), Domain("value"), ValueRange(1, 32767, 1));
-	//cDrainageID->SetOwnedByTable(true);
-	//cDrainageID->SetReadOnly(true);
-	//Column cUpstreamLinkCatchment = m_tbl->colNew(String("UpstreamLinkCatchment"), Domain("string"));
-	//cUpstreamLinkCatchment->SetOwnedByTable(true);
-	//cUpstreamLinkCatchment->SetReadOnly(true);
-	//Column cDownstreamLinkCatchment = m_tbl->colNew(String("DownstreamLinkCatchment"), Domain("value"), ValueRange(1, 32767, 1));
-	//cDownstreamLinkCatchment->SetOwnedByTable(true);
-	//cDownstreamLinkCatchment->SetReadOnly(true);
-	//Column cPerimeter = m_tbl->colNew(String("Perimeter"), Domain("value"), ValueRange(1, 1.0e300, 0.01));
-	//Column cCatchmentArea = m_tbl->colNew(String("CatchmentArea"), Domain("value"), ValueRange(1, 1.0e300, 0.01));
-	//Column cTotalUpstreamArea = m_tbl->colNew(String("TotalUpstreamArea"), Domain("value"), ValueRange(1, 1.0e300, 0.01));
-	//Column cLongestFlowLength = m_tbl->colNew(String("LongestFlowLength"), Domain("value"), ValueRange(1, 1.0e300, 0.01));
+	std::vector<QVariant> colStreamID = tblAtt->column(_inDrngOrderRaster->primaryKey());
 
-	////Retrieve upstream link attributes needed to compute the total area
-	//AttUpstreamLink vUpstreamLinks;
-	//for (long i = 1; i <= iSize; i++)
-	//{
-	//	long iDrainageID = pdsrt->iOrd(i);
-	//	vUpstreamLinks.DrainageID = iDrainageID;
-	//	SplitString(colUpstreamLink->sValue(i), vUpstreamLinks.UpstreamLink);
-	//	m_vvUpstreamLinks.push_back(vUpstreamLinks);
+	std::vector<QVariant> colUpstreamLink = tblAtt->column(sUpstreamLink);
+	IDomain colUplinkDomain = tblAtt->columndefinitionRef(sUpstreamLink).datadef().domain();
+
+	if ( !colUplinkDomain.isValid() )
+		throw ErrorObject(TR("Source map must have domain class or id"));
+
+	std::vector<QVariant> colDownstreamLink = tblAtt->column(sDownstreamLink);
+	std::vector<QVariant> colFlowLength = tblAtt->column(QString("Length"));
+
+	long iSize = colStreamID.size();
+
+	//Define catchment attributes
+	_outputTable->addColumn("DrainageID", IlwisObject::create<IDomain>("value"),true);
+	ColumnDefinition& coldef0 = _outputTable->columndefinitionRef("DrainageID");
+	coldef0.datadef().range(new NumericRange(1, 32767, 1)); 
+
+	_outputTable->addColumn("UpstreamLinkCatchment", IlwisObject::create<IDomain>("text"), true);
+
+	_outputTable->addColumn("DownstreamLinkCatchment", IlwisObject::create<IDomain>("value"), true);
+	ColumnDefinition& coldef1 = _outputTable->columndefinitionRef("DownstreamLinkCatchment");
+	coldef1.datadef().range(new NumericRange(1, 32767, 1));
+
+	_outputTable->addColumn("Perimeter", IlwisObject::create<IDomain>("value"));
+	ColumnDefinition& coldef2 = _outputTable->columndefinitionRef("Perimeter");
+	coldef2.datadef().range(new NumericRange(1, 1.0e300, 0.01));
+
+	_outputTable->addColumn("CatchmentArea", IlwisObject::create<IDomain>("value"));
+	ColumnDefinition& coldef3 = _outputTable->columndefinitionRef("CatchmentArea");
+	coldef3.datadef().range(new NumericRange(1, 1.0e300, 0.01));
+
+	_outputTable->addColumn("CenterCatchment", IlwisObject::create<IDomain>("text"), true);
+
+	_outputTable->addColumn("TotalUpstreamArea", IlwisObject::create<IDomain>("value"));
+	ColumnDefinition& coldef4 = _outputTable->columndefinitionRef("TotalUpstreamArea");
+	coldef4.datadef().range(new NumericRange(1, 1.0e300, 0.01));
+
+	_outputTable->addColumn("LongestFlowLength", IlwisObject::create<IDomain>("value"));
+	ColumnDefinition& coldef5 = _outputTable->columndefinitionRef("LongestFlowLength");
+	coldef5.datadef().range(new NumericRange(1, 1.0e300, 0.01));
+
+	AttUpstreamLink vUpstreamLinks;
+	for (long i = 0; i <iSize; i++)
+	{
+		//long iid = colUplinkDomain->da
+		long iDrainageID = colStreamID[i].toInt()+1;
+		vUpstreamLinks.DrainageID = iDrainageID;
+		SplitString(colUpstreamLink[i].toString(), QString(","),vUpstreamLinks.UpstreamLink);
+		m_vvUpstreamLinks.push_back(vUpstreamLinks);
+	}
+
+	//Retrieve upstream link attributes needed to compute the total area
+	quint32 record = 0;
+	quint32 totalcount = m_vDrnIDs.size();
+	for (std::vector<long>::iterator pos = m_vDrnIDs.begin(); pos < m_vDrnIDs.end(); ++pos)
+	{
+		long rec(*pos);
+		record = rec;
+
+		QString id = QString::number(record);
+
+		if (id != "")
+		{
+			if (_idrange->contains(id))
+			{
+				++totalcount;
+				id = QString::number(totalcount);
+			}
+			*_idrange << id;
+		}
+
+		record = record - 1;
+		long iDrainageID = colStreamID[record].toInt()+1;
+		if (iDrainageID == iUNDEF)
+			continue;
+		_outputTable->setCell("DrainageID", record, QVariant(iDrainageID));
+		_outputTable->setCell("UpstreamLinkCatchment", record, QVariant(colUpstreamLink[record].toString()));
+		_outputTable->setCell("DownstreamLinkCatchment", record, QVariant(colDownstreamLink[record].toInt()));
+		_outputTable->setCell("LongestFlowLength", record, QVariant(colFlowLength[record].toDouble()));
+	
+		////Initialize the totalarea  to the catchment area itsself, if it is a source link, it should be
+		////Otherwise, assign an no data value, this will be computed later
+
+	/*	AttUpstreamLink vULs(m_vvUpstreamLinks[i - 1]);
+
+		if (vULs.UpstreamLink.size() == 1 && vULs.UpstreamLink[0] == 0)
+			cTotalUpstreamArea->PutVal(iDrainageID, m_cArea->rValue(i));
+		else
+			cTotalUpstreamArea->PutVal(iDrainageID, rUNDEF);*/
+
+		//cLongestFlowLength->PutVal(iDrainageID, colFlowLength->rValue(i));
+
 	//}
 
-	//long index = 0;
-	//for (long i = 1; i <= iSize; i++)
-	//{
-	//	long iDrainageID = pdsrt->iOrd(i);
-	//	if (iDrainageID == iUNDEF)
-	//		continue;
 
-	//	cDrainageID->PutVal(iDrainageID, iDrainageID);
-	//	cUpstreamLinkCatchment->PutVal(iDrainageID, colUpstreamLink->sValue(i));
-	//	cDownstreamLinkCatchment->PutVal(iDrainageID, colDownstreamLink->iValue(i));
-	//	cPerimeter->PutVal(iDrainageID, m_cPerimeter->rValue(i));
-	//	cCatchmentArea->PutVal(iDrainageID, m_cArea->rValue(i));
+		_outputTable->setCell(_outCatchmentRaster->primaryKey(), record, QVariant(record));
+	}
 
-	//	//Initialize the totalarea  to the catchment area itsself, if it is a source link, it should be
-	//	//Otherwise, assign an no data value, this will be computed later
-	//	AttUpstreamLink vULs(m_vvUpstreamLinks[i - 1]);
-	//	if (vULs.UpstreamLink.size() == 1 && vULs.UpstreamLink[0] == 0)
-	//		cTotalUpstreamArea->PutVal(iDrainageID, m_cArea->rValue(i));
-	//	else
-	//		cTotalUpstreamArea->PutVal(iDrainageID, rUNDEF);
-
-	//	cLongestFlowLength->PutVal(iDrainageID, colFlowLength->rValue(i));
-
-	//	if (trq.fUpdate(index, (int)m_vRecords.size())) return;
-	//	index++;
-	//}
-	//trq.fUpdate((int)m_vRecords.size(), (int)m_vRecords.size());
-
-	//ComputeTotalUpstreamArea(pdsrt, cCatchmentArea, cTotalUpstreamArea);
-	//m_vvUpstreamLinks.resize(0);
+//	m_vvUpstreamLinks.resize(0);
 }
+
+
 
 //void MapCatchmentExtraction::ComputeTotalUpstreamArea(DomainSort* pdsrt, Column cArea, Column cTotalArea)
 //{
-	//bool fComputeTotalArea = true;
-	//long iSize = pdsrt->iSize();
-	//trq.SetText(TR("Calculate the total upstream catchment area"));
-	//while (fComputeTotalArea)
-	//{
-	//	fComputeTotalArea = false;
-	//	for (long i = 1; i <= iSize; i++)
-	//	{
-	//		long iDrainageID = pdsrt->iOrd(i);
-	//		if (iDrainageID == iUNDEF)
-	//			continue;
-
-	//		if (cTotalArea->rValue(i) == rUNDEF)
-	//		{
-	//			fComputeTotalArea = true;
-	//			AttUpstreamLink vULs(m_vvUpstreamLinks[i - 1]);
-	//			vector<long> vLinks = vULs.UpstreamLink;
-	//			double rArea = 0;
-	//			for (vector<long>::iterator pos = vLinks.begin();
-	//				pos < vLinks.end(); ++pos)
-	//			{
-	//				//search ID in domain, return index, if the ID is found 
-	//				String sLbl("%li", (*pos));
-	//				long iRaw = pdsrt->iOrd(sLbl);
-	//				if (cTotalArea->rValue(iRaw) == rUNDEF)
-	//					break;
-	//				rArea += cTotalArea->rValue(iRaw);
-	//				cTotalArea->PutVal(iDrainageID, rArea);
-	//			}
-	//		}
-	//		if (trq.fUpdate(i, iSize)) return;
-	//	}
-	//} //while()
+//	bool fComputeTotalArea = true;
+//	long iSize = pdsrt->iSize();
+//	trq.SetText(TR("Calculate the total upstream catchment area"));
+//	while (fComputeTotalArea)
+//	{
+//		fComputeTotalArea = false;
+//		for (long i = 1; i <= iSize; i++)
+//		{
+//			long iDrainageID = pdsrt->iOrd(i);
+//			if (iDrainageID == iUNDEF)
+//				continue;
+//
+//			if (cTotalArea->rValue(i) == rUNDEF)
+//			{
+//				fComputeTotalArea = true;
+//				AttUpstreamLink vULs(m_vvUpstreamLinks[i - 1]);
+//				vector<long> vLinks = vULs.UpstreamLink;
+//				double rArea = 0;
+//				for (vector<long>::iterator pos = vLinks.begin();
+//					pos < vLinks.end(); ++pos)
+//				{
+//					//search ID in domain, return index, if the ID is found 
+//					String sLbl("%li", (*pos));
+//					long iRaw = pdsrt->iOrd(sLbl);
+//					if (cTotalArea->rValue(iRaw) == rUNDEF)
+//						break;
+//					rArea += cTotalArea->rValue(iRaw);
+//					cTotalArea->PutVal(iDrainageID, rArea);
+//				}
+//			}
+//			if (trq.fUpdate(i, iSize)) return;
+//		}
+//	} //while()
 //}
 
 //void MapCatchmentExtraction::ComputerCenterPolygon(FileName fn)
@@ -677,40 +884,61 @@ void MapCatchmentExtraction::ComputeCenterDrainage()
 
 	std::vector<QVariant> colPrimaryKey = tblAtt->column(_inDrngOrderRaster->primaryKey());
 
-	/*Column colUpstreamCoord = tblAtt->col(String("UpstreamCoord"));
-	Column colLength = tblAtt->col(String("Length"));
 
-	Domain dmcrd;
-	dmcrd.SetPointer(new DomainCoord(mp->cs()->fnObj));
-	Column cCenterDrainage = m_tbl->colNew(String("CenterDrainage"), dmcrd);
+	_outputTable->addColumn("CenterDrainage", IlwisObject::create<IDomain>("text"));
 
-	DomainSort* pdsrt = colUpstreamCoord->dmKey()->pdsrt();
-	if (!pdsrt)
-		throw ErrorObject(TR("Source map must have domain class or id"));
-	long iSize = pdsrt->iSize();
-	for (long i = 1; i <= iSize; i++)
+	long iSize = colPrimaryKey.size();
+	for (long i = 0; i < iSize; i++)
 	{
-		long iDrainageID = pdsrt->iOrd(i);
-		if (iDrainageID == iUNDEF)
+		long iDrainageID = colPrimaryKey[i].toInt();
+		if (iDrainageID == iUNDEF )
 			continue;
 
-		RowCol rc = mp->gr()->rcConv(colUpstreamCoord->cValue(i));
-		double rLength = colLength->rValue(i) / 2;
+		QString coordsStr = colUpstreamCoord[i].toString();
+
+		if (coordsStr.isEmpty())
+			continue;
+
+		coordsStr.replace("(", "");
+		coordsStr.replace(")", "");
+
+		coordsStr.replace("{", "");
+		coordsStr.replace("}", "");
+
+		Coordinate crd = Coordinate(coordsStr);
+
+		crd.z = 0;
+		Pixel pxl = _inDrngOrderRaster->georeference()->coord2Pixel(crd);
+		double rLength = colLength[i].toDouble() / 2;
 		double rDistance = 0;
 		while (rDistance < rLength)
 		{
-			double rDist = GetDistance(rc);
+			double rDist = GetDistance(pxl);
 			if (rDist == 0)
 				break;
 			rDistance = rDistance + rDist;
 		}
-		rc.Row -= 1;
-		rc.Col -= 1;
-		Coord crd = mp->gr()->cConv(rc);
-		cCenterDrainage->PutVal(iDrainageID, crd);
-		if (trq.fUpdate(i, iSize)) return;
-	}*/
+
+		pxl.x -= 1;
+		pxl.y -= 1;
+
+		crd = _inDrngOrderRaster->georeference()->pixel2Coord(pxl);
+
+		QString crdstr = CoordinateFormatString(crd.toString());
+		_outputTable->setCell("CenterDrainage", iDrainageID,QVariant(crdstr));
+
+	}
 }
+
+
+QString MapCatchmentExtraction::CoordinateFormatString(QString crd)
+{
+	QString crdstring;
+	crdstring = QString("{") + crd;
+	crdstring = crdstring + QString("}");
+	return crdstring;
+}
+
 
 long MapCatchmentExtraction::DelineateCatchment(Pixel pxl, long iFlag)
 {
@@ -742,21 +970,23 @@ long MapCatchmentExtraction::DelineateCatchment(Pixel pxl, long iFlag)
 		isFlow = false;
 		switch (iNr)
 		{
-		case 1: {	//East
+		case 1: 
+		{	//East
 			if (pxl.x != _xsize - 1)
 			{
 				pospxl.y = pxl.y;
 				pospxl.x = pxl.x + 1;
-				isFlow = (*iterFld[pospxl] == 5 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 5 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
-		case 2: { //South East 
+		case 2: 
+		{ //South East 
 			if (pxl.x != _xsize - 1 && pxl.y != _ysize - 1)
 			{
 				pospxl.y = pxl.y + 1;
 				pospxl.x = pxl.x + 1;
-				isFlow = (*iterFld[pospxl] == 6 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 6 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
@@ -765,35 +995,38 @@ long MapCatchmentExtraction::DelineateCatchment(Pixel pxl, long iFlag)
 			{
 				pospxl.y = pxl.y + 1;
 				pospxl.x = pxl.x;
-				isFlow = (*iterFld[pospxl] == 6 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 7 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
-		case 4: { //South West
+		case 4: 
+		{ //South West
 			if ( pxl.x != 0 && pxl.y != _ysize - 1)
 			{
 				pospxl.y = pxl.y + 1;
 				pospxl.x = pxl.x - 1;
-				isFlow = (*iterFld[pospxl] == 8 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 8 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
-		case 5: {	//West
+		case 5:
+		{	//West
 			if (pxl.x != 0)
 			{
 				pospxl.y = pxl.y;
 				pospxl.x = pxl.x - 1;
-				isFlow = (*iterFld[pospxl] == 1 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 1 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
-		case 6: {	//North West 
+		case 6: 
+		{	//North West 
 			if (pxl.x != 0 && pxl.y != 0)
 			{
 				isFlow = false;
 				pospxl.y = pxl.y - 1;
 				pospxl.x = pxl.x - 1;
-				isFlow = (*iterFld[pospxl] == 2 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 2 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
@@ -802,32 +1035,30 @@ long MapCatchmentExtraction::DelineateCatchment(Pixel pxl, long iFlag)
 			{
 				pospxl.y = pxl.y - 1;
 				pospxl.x = pxl.x;
-				isFlow = (*iterFld[pospxl] == 3 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 3 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
-		case 8: {	//North East
+		case 8: 
+		{	//North East
 			if (pxl.x != _xsize - 1 && pxl.y != 0)
 			{
 				pospxl.y = pxl.y - 1;
 				pospxl.x = pxl.x + 1;
-				isFlow = (*iterFld[pospxl] == 4 && *iterFlag[pospxl] == iUNDEF);
+				isFlow = (*iterFld(pospxl) == 4 && *iterFlag(pospxl) == iUNDEF);
 			}
 		}
 			  break;
 		}
 		if (isFlow)
 		{
-			pospxl.y = pxl.y;
-			pospxl.x = pxl.x;
-			iFlow += DelineateCatchment(pxl, iFlag);
-
+			iFlow += DelineateCatchment( pospxl, iFlag);
 		}
-		*iterFlag[pxl] = iFlag;
-		//m_vDrainageMap[iRow][iCol] = iFlag;
+		*iterFlag(pxl) = iFlag;
 	}
 	return iFlow;
 }
+
 
 long MapCatchmentExtraction::FindDownstreamIndex(long DowmstreamID)
 {
@@ -844,7 +1075,7 @@ long MapCatchmentExtraction::FindDownstreamIndex(long DowmstreamID)
 void MapCatchmentExtraction::UpdateUpstreamLinkID(long DrainageID, long UpstreamID)
 {
 
-	if (DrainageID != iUNDEF)
+	if (DrainageID != iUNDEF )
 	{
 		//Find the downstream index in m_vRecords
 		//returns position for the downstream in m_vRecords
@@ -892,4 +1123,25 @@ bool MapCatchmentExtraction::fEllipsoidalCoords()
 	//	fSpheric = (csviall->ell.fSpherical());
 	//return (0 != csviall && 0 == fSpheric);
 	return false;
+}
+
+//////////////////////
+MapCatchmentExtraction::NetworkPoint MapCatchmentExtraction::makeConnection(const Pixel& pCenter, bool isTemp, std::vector<MapCatchmentExtraction::PrevLinePoint>& previousLine) {
+
+	if (previousLine[pCenter.x].isValid()) {
+		MapCatchmentExtraction::NetworkPoint currentPoint;
+		MapCatchmentExtraction::PrevLinePoint newPPoint;
+		currentPoint._x = pCenter.x;
+		currentPoint._y = pCenter.y;
+		auto topPoint = previousLine[pCenter.x];
+		if (isTemp) {
+			if (topPoint._shadowLink != iUNDEF) {
+				newPPoint._shadowLink = topPoint._shadowLink;
+			}
+			else {
+			}
+
+		}
+	}
+	return MapCatchmentExtraction::NetworkPoint();
 }

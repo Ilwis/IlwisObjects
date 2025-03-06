@@ -64,39 +64,67 @@ namespace Ilwis {
 			bool IsEdgeCell(Pixel pxl);
 			//void CompitableGeorefs(FileName fn, Map mp1, Map mp2);
 			void GetAttributes();
+			long DelineateCatchment(PixelIterator iterFld, PixelIterator iterFlag,Pixel pxl, long iFlag);
 			long DelineateCatchment(Pixel pxl, long iFlag);
 			long FindDownstreamIndex(long DownstreamID);
 			void UpdateUpstreamLinkID(long DrainageID, long UpstreamID);
 			void EraseDrainage(long DrainageID);
 			void ComputeCatchmentAttributes();
 			bool fLatLonCoords();
-			//void ComputeTotalUpstreamArea(DomainSort* pdsrt, Column cArea, Column cTotalArea);
-			//void ComputerCenterPolygon(FileName fn);
 			void ComputeCenterDrainage();
 			double GetDistance(Pixel& rc);
 			double rDistance(Coordinate cd1, Coordinate cd2);
 			bool fEllipsoidalCoords();
 			void SetAttributeTable();
 
-
-			void SplitUpStreamLink(QString s, std::vector<long>& results);
+			void SplitString(QString s,QString mid,std::vector<long>& results);
+			QString CoordinateFormatString(QString crd);
 
 		private:
 			IRasterCoverage _inDrngOrderRaster;
 			IRasterCoverage _inFldRaster;
 
 			IRasterCoverage _outCatchmentRaster;
-			IRasterCoverage _iterEmptyRaster;
 			IRasterCoverage _flagRaster;
 			
 			IFeatureCoverage _outputfeatures;
 			ITable _outputTable;
+
+			INamedIdDomain _outDomain;
+			NamedIdentifierRange* _idrange;
 
 			ICoordinateSystem _csy;
 			IGeoReference _inputgrf;
 
 			long _xsize, _ysize;
 			std::vector<AttCols> m_vRecords;
+			std::vector<long> m_vDrnIDs;
+
+			std::vector<AttUpstreamLink> m_vvUpstreamLinks;
+
+		private:
+			struct PrevLinePoint {
+				int _networkLink = iUNDEF;
+				int _shadowLink = iUNDEF;
+
+				bool isValid() const { return _networkLink != iUNDEF || _shadowLink != iUNDEF; }
+
+			};
+
+			struct NetworkPoint {
+				int _x = iUNDEF;
+				int _y = iUNDEF;
+				int _links[4]; // 0=left. 1=up; 2=right; 3=down
+
+				bool isValid() const { return _x != iUNDEF && _y != iUNDEF; }
+			};
+
+			std::vector<NetworkPoint> _points;
+
+			NetworkPoint makeConnection(const Pixel& pCenter, bool isTemp, std::vector<MapCatchmentExtraction::PrevLinePoint>& previousLine);
+
+
+
 
 			NEW_OPERATION(MapCatchmentExtraction);
 		};
