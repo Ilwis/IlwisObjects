@@ -1021,6 +1021,8 @@ bool RasterToPolygon::execute(ExecutionContext* ctx, SymbolTable& symTable) {
 		ITable tblArnAtt = mapArn->attributeTable();
 		QString sColMap = QFileInfo(_expression.parm(0).value()).baseName();
 		std::vector<QVariant> columnValues = tblArnAtt->column(sColMap);
+		if (!columnValues.size())
+			return false;
 		ITable tblRasAtt = _inputraster->attributeTable();
 		if (tblRasAtt.isValid()) {
 			quint32 defCount = tblRasAtt->columnCount();
