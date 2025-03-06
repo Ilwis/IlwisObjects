@@ -3,6 +3,6 @@ ILWISPy is a Geo-Processing Tool which can be used as a site-package under Pytho
 ILWISPy can be directly imported in Python, but can also be used within a Jupyter Notebook, offering the capability of markdown text with explanations and subsequent coding fields to execute certain operations, which for educational purposes offers nice opportunities.
 
 For more information visit the ILWISPy github repository:
-[https://github.com/Ilwis/IlwisObjects](https://github.com/Ilwis/IlwisObjects)
+[https://github.com/Ilwis/IlwisObjects](https://github.com/Ilwis/IlwisObjects#readme)
 
 
