@@ -160,7 +160,7 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 				quint32 count = _outputfeatures->featureCount();
 				quint32 recordcount = _outputTable->recordCount();
 				for (int rec = 0; rec < count; ++rec) {
-					SPFeatureI& feature = _outputfeatures->feature(rec);
+					const SPFeatureI& feature = _outputfeatures->feature(rec);
 					quint64 id = feature->featureid();
 					geos::geom::Polygon* polygon = dynamic_cast<geos::geom::Polygon*>(feature->geometry().get());
 					if (polygon) {
@@ -679,7 +679,7 @@ void MapCatchmentExtraction::ComputeCatchmentAttributes()
 		long iDrainageID = colStreamID[record].toInt()+1;
 		if (iDrainageID == iUNDEF)
 			continue;
-		_outputTable->setCell("DrainageID", record, QVariant(iDrainageID));
+		_outputTable->setCell("DrainageID", record, QVariant((int)iDrainageID));
 		_outputTable->setCell("UpstreamLinkCatchment", record, QVariant(colUpstreamLink[record].toString()));
 		_outputTable->setCell("DownstreamLinkCatchment", record, QVariant(colDownstreamLink[record].toInt()));
 		_outputTable->setCell("LongestFlowLength", record, QVariant(colFlowLength[record].toDouble()));
