@@ -43,7 +43,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "geos/geom/CoordinateSequence.h"
 #include "geos/geom/CoordinateSequenceFactory.h"
 #include "geos/geom/GeometryFactory.h"
-#include "geos/geom/linestring.h"
+#include "geos/geom/LineString.h"
 #include "geos/geom/Point.h"
 #include "geos/geom/Polygon.h"
 
@@ -1284,7 +1284,7 @@ Coordinate MapCatchmentMerge::SplitSegment(IFeatureCoverage smpFrom, long iRaw, 
 			{
 				geometry->setSRID(id);
 				SPFeatureI ft = _longestPathFeature->newFeature(geometry);
-				rec.cell(rec.columnCount() - 1) = id;
+				rec.cell(rec.columnCount() - 1) = (int)id;
 				ft->record(rec);
 			}
 			cd = crdbufFrom->getAt(iCount - 1);
@@ -1318,7 +1318,7 @@ void MapCatchmentMerge::StoreSourceSegment(long val)
 		//geometry->setSRID(val);
 		SPFeatureI ft = _longestPathFeature->newFeature(geometry);
 		Record rec = ft->record();
-		rec.cell(rec.columnCount() - 1) = val;
+		rec.cell(rec.columnCount() - 1) = (int)val;
 	}
 
 }
@@ -1357,7 +1357,7 @@ Coordinate MapCatchmentMerge::StoreSegment(IFeatureCoverage smpFrom, long id, lo
 
 					SPFeatureI ft = _longestPathFeature->newFeature(geometry);
 					Record rec = ft->record();
-					rec.cell(rec.columnCount() - 1) = val;
+					rec.cell(rec.columnCount() - 1) = (int)val;
 					Record rec1 = ft->record();
 
 					QVariant idval1 = rec.cell(rec.columnCount() - 1);
@@ -1777,7 +1777,7 @@ void MapCatchmentMerge::UpdateDownLinkCatchment(long id)
 	{
 		long iUpLinkCatchmentID = *pos;
 		quint32 record = iUpLinkCatchmentID - 1;
-		_outputTable->setCell("DownstreamLinkCatchment", record, QVariant(id));
+		_outputTable->setCell("DownstreamLinkCatchment", record, QVariant((int)id));
 	}
 }
 
