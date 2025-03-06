@@ -27,11 +27,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     Hydroflow/hydroflow_module.cpp \
     Hydroflow/MapCatchmentExtraction.cpp \
+    Hydroflow/MapCatchmentMerge.cpp \
     Hydroflow/MapDrainageNetworkExtraction.cpp \
     Hydroflow/MapDrainageNetworkOrdering.cpp \
     Hydroflow/MapFillSinks.cpp \
     Hydroflow/MapFlowAccumulation.cpp \
     Hydroflow/MapFlowDirection.cpp \
+    Hydroflow/MapOverlandFlowLength.cpp \
     Hydroflow/MapVariableThresholdComputation.cpp \
     Hydroflow/normalizerelativedem.cpp \
     Hydroflow/relativedem.cpp
@@ -42,11 +44,13 @@ HEADERS += \
     Hydroflow/hydroflow_global.h \
     Hydroflow/hydroflow_module.h \
     Hydroflow/MapCatchmentExtraction.h \
+    Hydroflow/MapCatchmentMerge.h \
     Hydroflow/MapDrainageNetworkExtraction.h \
     Hydroflow/MapDrainageNetworkOrdering.h \
     Hydroflow/MapFillSinks.h \
     Hydroflow/MapFlowAccumulation.h \
     Hydroflow/MapFlowDirection.h \
+    Hydroflow/MapOverlandFlowLength.h \
     Hydroflow/MapVariableThresholdComputation.h \
     Hydroflow/normalizerelativedem.h \
     Hydroflow/relativedem.h
