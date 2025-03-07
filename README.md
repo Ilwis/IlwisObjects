@@ -10,7 +10,7 @@ While the most urgent deployment issues are being resolved, the extension is ava
 
 `python3 -m pip install -i https://test.pypi.org/simple/ ilwis`
 
-Add `--update` to this statement, to update a previously installed version.
+Add `--upgrade` to this statement, to update a previously installed version.
 
 ## Known installation issues under Linux
 
