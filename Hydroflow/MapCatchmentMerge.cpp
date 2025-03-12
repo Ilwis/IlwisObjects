@@ -496,8 +496,10 @@ bool MapCatchmentMerge::executeCatchmentMerging()
 	// init output
 	while (m_iterOut != inEnd)
 	{
-		if (*m_iterOut > 255)
+		if ((*m_iterOut > 255) || (*m_iterOut == 0))
 			*m_iterOut = iUNDEF;
+		else
+			*m_iterOut = *m_iterOut - 1;
 		++m_iterOut;
 	}
 
