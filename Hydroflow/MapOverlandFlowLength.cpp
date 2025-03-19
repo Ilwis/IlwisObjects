@@ -93,12 +93,12 @@ Ilwis::OperationImplementation::State MapOverlandFlowLength::prepare(ExecutionCo
 	if (itemdom.isValid() && hasType(itemdom->valueType(), itTHEMATICITEM | itNUMERICITEM | itTIMEITEM | itNAMEDITEM))
 	{
 		_inFlowRaster.set(_inFlowRaster->clone());
-		PixelIterator iterFld = PixelIterator(_inFlowRaster, BoundingBox(), PixelIterator::fXYZ);
-		PixelIterator iterFldEnd = iterFld.end();
-		while (iterFld != iterFldEnd)
+		m_iterFlow = PixelIterator(_inFlowRaster, BoundingBox(), PixelIterator::fXYZ);
+		PixelIterator iterFldEnd = m_iterFlow.end();
+		while (m_iterFlow != iterFldEnd)
 		{
-			*iterFld = (*iterFld != rUNDEF) ? (*iterFld + 1) : 0; // shift the values, to make them the same as ilwis3 (0 is undef, 1..8 are the direction)
-			++iterFld;
+			*m_iterFlow = (*m_iterFlow != rUNDEF) ? (*m_iterFlow + 1) : 0; // shift the values, to make them the same as ilwis3 (0 is undef, 1..8 are the direction)
+			++m_iterFlow;
 		}
 	}
 
@@ -106,44 +106,35 @@ Ilwis::OperationImplementation::State MapOverlandFlowLength::prepare(ExecutionCo
 	if (itemdomDno.isValid() && hasType(itemdomDno->valueType(), itTHEMATICITEM | itNUMERICITEM | itTIMEITEM | itNAMEDITEM))
 	{
 		_inDrainRaster.set(_inDrainRaster->clone());
-		PixelIterator iterDno = PixelIterator(_inDrainRaster, BoundingBox(), PixelIterator::fXYZ);
-		PixelIterator iterDnoEnd = iterDno.end();
-		while (iterDno != iterDnoEnd)
+		m_iterDrain = PixelIterator(_inDrainRaster, BoundingBox(), PixelIterator::fXYZ);
+		PixelIterator iterDnoEnd = m_iterDrain.end();
+		while (m_iterDrain != iterDnoEnd)
 		{
-			*iterDno = (*iterDno != rUNDEF) ? (*iterDno + 1) : 0; // shift the values, to make them the same as ilwis3 (0 is undef, 1..8 are the direction)
-			++iterDno;
+			*m_iterDrain = (*m_iterDrain != rUNDEF) ? (*m_iterDrain + 1) : 0; // shift the values, to make them the same as ilwis3 (0 is undef, 1..8 are the direction)
+			++m_iterDrain;
 		}
 	}
-
+	
 	int copylist = itRASTERSIZE | itENVELOPE | itCOORDSYSTEM | itGEOREF | itNUMERICDOMAIN;
 	_outRaster = OperationHelperRaster::initialize(_inDrainRaster.as<IlwisObject>(), itRASTER, copylist);
 	if (!_outRaster.isValid()) {
 		ERROR1(ERR_NO_INITIALIZED_1, "output rastercoverage");
 		return sPREPAREFAILED;
 	}
+	else
+	{
+		IDomain dom("code=domain:value");
+		_outRaster->datadefRef() = DataDefinition(dom);
 
+		for (quint32 i = 0; i < _outRaster->size().zsize(); ++i) {
+			QString index = _outRaster->stackDefinition().index(i);
+			_outRaster->setBandDefinition(index, DataDefinition(dom));
+		}
 
+	}
 
 	_xsize = _inDrainRaster->size().xsize();
 	_ysize = _inDrainRaster->size().ysize();
-
-
-	/////////////////////////////////////////////////////////////////
-	/*if (_outRaster.isValid())
-	{
-		QString catchName = "CatchID";
-		_outDomain.prepare();
-		_idrange = new NamedIdentifierRange();
-		_outDomain->range(_idrange);
-
-		DataDefinition def(_outDomain);
-		_outMergeRaster->datadefRef() = def;
-		for (int band = 0; band < _outMergeRaster->size().zsize(); ++band) {
-			_outMergeRaster->datadefRef(band) = def;
-		}
-
-		return sPREPARED;
-	}*/
 
     return sPREPARED;
 }
@@ -153,9 +144,9 @@ quint64 MapOverlandFlowLength::createMetadata()
 	OperationResource operation({ "ilwis://operations/MapOverlandFlowLength" });
     operation.setSyntax("MapOverlandFlowLength(DrainageNetworkOrderMap,FlowDiractionMap)");
 
-    operation.setDescription(TR("New flow length raster will be created based on the Drainage NetWork Ordering Map and Flow Direction Map "));
+    operation.setDescription(TR("calculates for each pixel the overland distance towards the 'nearest' drainage"));
     operation.setInParameterCount({ 2 });
-    operation.addInParameter(0, itRASTER, TR("Drainage NetWork Ordering Map"), TR("input raster that is the output of the Drainage network ordering operation"));
+    operation.addInParameter(0, itRASTER, TR("Drainage NetWork Ordering Map"), TR("input raster that is the output of the Drainage Network Ordering operation"));
     operation.addInParameter(1, itRASTER, TR("Flow Direction Map"), TR("input raster that is the output of the Flow direction operation"));
 
     operation.parameterNeedsQuotes(1);
@@ -198,8 +189,8 @@ void InitFlowNums(std::vector<byte>& vReceiveNum)
 bool MapOverlandFlowLength::executeLandFlowLength()
 {
 
-	m_iterDrain = PixelIterator(_inDrainRaster, BoundingBox(), PixelIterator::fXYZ);
-	m_iterFlow = PixelIterator(_inFlowRaster, BoundingBox(), PixelIterator::fXYZ);
+	//m_iterDrain = PixelIterator(_inDrainRaster, BoundingBox(), PixelIterator::fXYZ);
+	//m_iterFlow = PixelIterator(_inFlowRaster, BoundingBox(), PixelIterator::fXYZ);
 	m_iterOut = PixelIterator(_outRaster, BoundingBox(), PixelIterator::fXYZ);
 
 	
@@ -208,7 +199,7 @@ bool MapOverlandFlowLength::executeLandFlowLength()
 	// init output
 	while (m_iterOut != inEnd)
 	{
-		*m_iterOut = iUNDEF;
+		*m_iterOut = rUNDEF;
 		++m_iterOut;
 	}
 
@@ -228,8 +219,8 @@ bool MapOverlandFlowLength::executeLandFlowLength()
 
 	InitFlowNums(m_vReceiveNum);
 
-	for (long i = 1; i < iSize; i++) {
-		long iDrainageID = colStreamID[i].toInt();
+	for (long i = 0; i < iSize; i++) {
+		long iDrainageID = colStreamID[i].toInt()+1;
 		if (iDrainageID == iUNDEF)
 			continue;
 
@@ -256,15 +247,16 @@ bool MapOverlandFlowLength::executeLandFlowLength()
 
 void MapOverlandFlowLength::SplitString(QString s, QString mid, std::vector<long>& results)
 {
+	results.clear();
+
 	s.replace("{", "");
 	s.replace("}", "");
 	QStringList strlst = s.split(mid);
 
-	results.clear();
 	for (unsigned int i = 0; i < strlst.size(); i++)
 	{
 		long res = strlst[i].toLong();
-		if (res != iUNDEF)
+		if (res != iUNDEF && res>0 )
 			results.push_back(res);
 	}
 }
@@ -292,18 +284,9 @@ Pixel MapOverlandFlowLength::CoordinateStringToPixel(QString coordStr)
 void MapOverlandFlowLength::Lengths2Stream(long iStreamID, Pixel rc, bool fUpstreamlins)
 {
 	//To match the index from 0 in the input matrix
-	/*rc.Row = rc.Row;
-	rc.Col = rc.Col;
-	m_rcUpstream.Row = m_rcUpstream.Row;
-	m_rcUpstream.Col = m_rcUpstream.Col;*/
-
 	PixelIterator iterOut = PixelIterator(_outRaster, BoundingBox(), PixelIterator::fXYZ);
-	PixelIterator iterflr = PixelIterator(_inFlowRaster, BoundingBox(), PixelIterator::fXYZ);
-	PixelIterator iterdrain = PixelIterator(_inDrainRaster, BoundingBox(), PixelIterator::fXYZ);
-
 
 	*iterOut(rc) = 0;  //It should be 0 to outlet cell of the segment
-
 	std::vector<Pixel> vStartCells; 
 	vStartCells.push_back(rc);
 
@@ -326,17 +309,16 @@ void MapOverlandFlowLength::Lengths2Stream(long iStreamID, Pixel rc, bool fUpstr
 					rcCur.z = 0;
 					rcCur.y = rcStart.y + i;
 					rcCur.x = rcStart.x + j;
-					if (IsEdgeCell(rcCur) != true)
+					if ( !IsEdgeCell(rcCur) )
 					{
-						bool isFlowNum =( *iterflr(rcCur) == m_vReceiveNum[index]);
-						//bool isUpStream = find(vUpstream.begin(), vUpstream.end(), rcCur) != vUpstream.end();
+						bool isFlowNum =( *m_iterFlow(rcCur) == m_vReceiveNum[index]);
 						bool isUpStream = ((rcCur == m_rcUpstream) && (fUpstreamlins == true));
 						bool isUndef = (*iterOut(rcCur) == rUNDEF);
-						bool isOverlandPixel = ((*iterdrain(rcCur) < 1) || (*iterdrain(rcCur) == iStreamID));
+						bool isOverlandPixel = ((*m_iterDrain(rcCur) < 1) || (*m_iterDrain(rcCur) == iStreamID));
 						bool isFlow = ((isFlowNum) && (isUpStream != true) && (isUndef));
 						if (isFlow && isOverlandPixel)
 						{
-							if ((*iterdrain(rcCur) == iStreamID) )
+							if ((*m_iterDrain(rcCur) == iStreamID) )
 								*iterOut(rcCur) = 0; //set dist value to 0, it should be
 							else
 							{
