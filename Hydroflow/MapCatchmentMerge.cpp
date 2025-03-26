@@ -2430,22 +2430,10 @@ Pixel MapCatchmentMerge::CoordinateStringToPixel(QString coordStr)
 	return _inDrngOrderRaster->georeference()->coord2Pixel(crd);
 }
 
-
-
-QString MapCatchmentMerge::CoordinateFormatString(QString crd)
-{
-	QString crdstring;
-	crdstring = QString("{") + crd;
-	crdstring = crdstring + QString("}");
-	return crdstring;
-}
-
-
 void MapCatchmentMerge::InitInOutMaps()
 {
 	
 }
-
 
 REGISTER_OPERATION(MapCatchmentMergeWithOutlet)
 

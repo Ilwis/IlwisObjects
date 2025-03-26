@@ -78,7 +78,6 @@ namespace Ilwis {
 			void AddLink2StreamSegments();
 			void InitOutletVector();
 			Pixel CoordinateStringToPixel(QString coordStr);
-			QString CoordinateFormatString(QString crd);
 			bool IsEdgeCell(Pixel pxl);
 			bool fRelocatOutlet(Pixel& pxl, int);
 			double CalculateLength(Pixel pxl1, Pixel pxl2, long);

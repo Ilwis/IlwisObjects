@@ -78,7 +78,6 @@ namespace Ilwis {
 			void SetAttributeTable();
 
 			void SplitString(QString s,QString mid,std::vector<long>& results);
-			QString CoordinateFormatString(QString crd);
 
 		private:
 			IRasterCoverage _inDrngOrderRaster;

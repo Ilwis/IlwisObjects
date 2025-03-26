@@ -134,7 +134,6 @@ namespace Ilwis {
 			void UpdateRecord();
 			void CreateTable(long maxStrahler);
 			void FillTableRecords();
-			QString CoordinateFormatString(QString crd);
 
 			NEW_OPERATION(DrainageNetworkOrdering);
 		};
