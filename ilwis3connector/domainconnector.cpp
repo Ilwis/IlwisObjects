@@ -44,6 +44,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "interval.h"
 #include "intervalrange.h"
 #include "domainconnector.h"
+//#include "coordinatesystem.h"
+//#include "coverage.h"
+#include "coordinatedomain.h"
 
 #include <QUrlQuery>
 
@@ -91,6 +94,9 @@ bool DomainConnector::handleIdDomain(IlwisObject* data) {
 
 bool DomainConnector::handleItemDomains(IlwisObject* data) {
     QString domtype = _odf->value("Domain","Type");
+    if (domtype == "DomainCoord") {
+        return true;
+    }
     bool hasDataFile = _odf->value("TableStore","Col1") == "Ord";
     if ( (domtype == "DomainUniqueID" || domtype ==  "DomainIdentifier") && !hasDataFile)
     { // no table found? internal domain
@@ -452,6 +458,8 @@ IlwisObject *DomainConnector::create() const
         return new NumericDomain(_resource);
     else if (type() == itITEMDOMAIN || type() == itDOMAIN) { // second case is for internal domains
         subtype =_odf->value("Domain", "Type");
+        if (subtype == "DomainCoord")
+            return new CoordinateDomain(_resource);
         bool internal = _odf->value("TableStore","Col1") != "Ord"; // if not exists it is no table so no datafile
         if ( subtype == "DomainUniqueID" || internal)
             return new ItemDomain<IndexedIdentifier>(_resource);

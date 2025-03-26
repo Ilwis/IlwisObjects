@@ -35,7 +35,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "numericrange.h"
 #include "identifieritem.h"
 #include "thematicitem.h"
-#include "domain.h"
 #include "datadefinition.h"
 #include "columndefinition.h"
 #include "representation.h"
@@ -43,6 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "flattable.h"
 #include "numericdomain.h"
 #include "ilwis3connector.h"
+#include "coordinatedomain.h"
 #include "tableconnector.h"
 #include "rawconverter.h"
 #include "binaryilwis3table.h"
@@ -220,6 +220,11 @@ bool TableConnector::loadData(IlwisObject* data , const IOOptions &) {
                     if (tbl.get(j,colindex,value)) {
                         varlist[j] = value;
                     }
+                } else if (valueType == itCOORDINATE) {
+                    Coordinate c;
+                    if (tbl.get(j, colindex, c)) {
+                        varlist[j].setValue(c);
+                    }
                 }
             }
             table->column(colName,varlist);
@@ -337,44 +342,53 @@ bool TableConnector::storeColumns(const Table *tbl, const IOOptions &options) {
     for(int i=0; i < tbl->columnCount(); ++i) {
         ColumnDefinition def = tbl->columndefinition(i);
         IDomain dmColumn = def.datadef().domain<>();
-        bool isOldSystem = true;
-        bool tableOnly = options.value("savemode", "") == "tableonly";
-        QString domName = getDomainName(dmColumn, isOldSystem);
-        if ( !isOldSystem && !tableOnly) {
-            if (domName.indexOf("/domains/") > -1)
-                domName = def.name() + ".dom";
-            if (domName.indexOf(ANONYMOUS_PREFIX) != -1) {
-                // rename using columnname + domainID
-                QString num = QString::number(dmColumn->id());
-                domName =def.name() + "_" + num;
+        QString domName;
+        if (dmColumn->ilwisType() & itCOORDDOMAIN) {
+            const ICoordinateSystem csy = dmColumn.as<CoordinateDomain>()->coordinateSystem();
+            if (csy.isValid()) {
+                domName = writeCsy(const_cast<Table*>(tbl), csy);
             }
-            QString fileUrl = OSHelper::createFileUrlFromParts(_odf->path(), "/" + domName);
-            if ( fileUrl.indexOf(".dom") == -1){
-                fileUrl += ".dom";
-            }
-            if (QFileInfo(QUrl(fileUrl).toLocalFile()).exists()) {
-                IDomain existingDomain(fileUrl);
-                if (!dmColumn->isCompatibleWith(existingDomain.ptr(), true))
-                    fileUrl = OSHelper::ensureUniqueFilename(QUrl(fileUrl).toLocalFile());
-            }
-            int lastSlash = fileUrl.lastIndexOf("/");
-            domName = fileUrl.right(fileUrl.length() - lastSlash - 1);
-            Resource res = dmColumn->resource();
-            res.setUrl(fileUrl);
-            res.setUrl(fileUrl,true);
-            DomainConnector conn(res, false);
-            conn.storeMetaData(dmColumn.ptr(), options);
-            if (hasType(dmColumn->valueType(), itTHEMATICITEM | itNUMERICITEM)) {
-                const IRepresentation rpr = def.datadef().representation();
-                if (rpr.isValid()) {
-                    QString rprName = !rpr->isAnonymous() ? rpr->name() : (QFileInfo(domName).baseName() + ".rpr");
-                    QString rprFilename = context()->workingCatalog()->resolve(rprName);
-                    if (rprFilename == sUNDEF) {
-                        int index = _odf->url().lastIndexOf("/");
-                        rprFilename = _odf->url().left(index) + "/" + rprName;
+        }
+        else {
+            bool isOldSystem = true;
+            bool tableOnly = options.value("savemode", "") == "tableonly";
+            domName = getDomainName(dmColumn, isOldSystem);
+            if (!isOldSystem && !tableOnly) {
+                if (domName.indexOf("/domains/") > -1)
+                    domName = def.name() + ".dom";
+                if (domName.indexOf(ANONYMOUS_PREFIX) != -1) {
+                    // rename using columnname + domainID
+                    QString num = QString::number(dmColumn->id());
+                    domName = def.name() + "_" + num;
+                }
+                QString fileUrl = OSHelper::createFileUrlFromParts(_odf->path(), "/" + domName);
+                if (fileUrl.indexOf(".dom") == -1) {
+                    fileUrl += ".dom";
+                }
+                if (QFileInfo(QUrl(fileUrl).toLocalFile()).exists()) {
+                    IDomain existingDomain(fileUrl);
+                    if (!dmColumn->isCompatibleWith(existingDomain.ptr(), true))
+                        fileUrl = OSHelper::ensureUniqueFilename(QUrl(fileUrl).toLocalFile());
+                }
+                int lastSlash = fileUrl.lastIndexOf("/");
+                domName = fileUrl.right(fileUrl.length() - lastSlash - 1);
+                Resource res = dmColumn->resource();
+                res.setUrl(fileUrl);
+                res.setUrl(fileUrl, true);
+                DomainConnector conn(res, false);
+                conn.storeMetaData(dmColumn.ptr(), options);
+                if (hasType(dmColumn->valueType(), itTHEMATICITEM | itNUMERICITEM)) {
+                    const IRepresentation rpr = def.datadef().representation();
+                    if (rpr.isValid()) {
+                        QString rprName = !rpr->isAnonymous() ? rpr->name() : (QFileInfo(domName).baseName() + ".rpr");
+                        QString rprFilename = context()->workingCatalog()->resolve(rprName);
+                        if (rprFilename == sUNDEF) {
+                            int index = _odf->url().lastIndexOf("/");
+                            rprFilename = _odf->url().left(index) + "/" + rprName;
+                        }
+                        rpr->connectTo(rprFilename, "representation", "ilwis3", Ilwis::IlwisObject::cmOUTPUT);
+                        rpr->store();
                     }
-                    rpr->connectTo(rprFilename, "representation", "ilwis3", Ilwis::IlwisObject::cmOUTPUT);
-                    rpr->store();
                 }
             }
         }
@@ -387,7 +401,7 @@ bool TableConnector::storeColumns(const Table *tbl, const IOOptions &options) {
         _odf->setKeyValue(colName, "Time", tm);
         _odf->setKeyValue(colName, "Version", "3.1");
         _odf->setKeyValue(colName, "Class", "Column");
-        if (!( domName.indexOf(".mpa") != -1 || domName.indexOf(".mps")!= -1 || domName.indexOf(".mpp")!= -1 || domName.indexOf(".mpr")!= -1)){
+        if (!( domName.indexOf(".mpa") != -1 || domName.indexOf(".mps")!= -1 || domName.indexOf(".mpp")!= -1 || domName.indexOf(".mpr")!= -1 || domName.indexOf(".csy") != -1)){
             domName =  domName.indexOf(".dom") != -1 ? domName : domName + ".dom";
         }
 
@@ -409,12 +423,15 @@ bool TableConnector::storeColumns(const Table *tbl, const IOOptions &options) {
             _odf->setKeyValue(colName, "StoreType","String");
         } else if ( dmColumn->valueType() & itIDENTIFIERITEM) {
             int count = dmColumn->range<ItemRange>()->count();
-            domainInfo = QString("%1;Long;id;%2;;").arg(domName).arg(count) ;
+            domainInfo = QString("%1;Long;id;%2;;").arg(domName).arg(count);
             _odf->setKeyValue(colName, "StoreType", "Long");
         } else if (dmColumn->valueType() & itNUMERICITEM) {
             int count = dmColumn->range<ItemRange>()->count();
             domainInfo = QString("%1;Byte;group;%2;;").arg(domName).arg(count);
             _odf->setKeyValue(colName, "StoreType", "Long");
+        } else if (dmColumn->ilwisType() & itCOORDDOMAIN) {
+            domainInfo = QString("%1;Coord;coord;0;;").arg(domName);
+            _odf->setKeyValue(colName, "StoreType", "Coord");
         }
         _odf->setKeyValue(colName, "DomainInfo", domainInfo);
     }

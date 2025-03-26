@@ -82,6 +82,11 @@ ICoordinateSystem CoordinateDomain::coordinateSystem() const
     return _csy;
 }
 
+void CoordinateDomain::setCoordinateSystem(ICoordinateSystem& csy)
+{
+    _csy = csy;
+}
+
 void CoordinateDomain::range(Range *)
 {
 
@@ -92,6 +97,10 @@ SPRange CoordinateDomain::getRange() const
     return _envelope;
 }
 
+bool CoordinateDomain::isOrdered() const
+{
+    return false;
+}
 
 IlwisTypes CoordinateDomain::valueType() const
 {
