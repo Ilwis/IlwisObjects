@@ -458,8 +458,16 @@ IlwisObject *DomainConnector::create() const
         return new NumericDomain(_resource);
     else if (type() == itITEMDOMAIN || type() == itDOMAIN) { // second case is for internal domains
         subtype =_odf->value("Domain", "Type");
-        if (subtype == "DomainCoord")
-            return new CoordinateDomain(_resource);
+        if (subtype == "DomainCoord") {
+            CoordinateDomain * crddom = new CoordinateDomain(_resource);
+            QString csyName = _resource.url().toString();
+            if (csyName.right(4) == ".csy") {
+                ICoordinateSystem csy;
+                csy.prepare(csyName);
+                crddom->setCoordinateSystem(csy);
+            }
+            return crddom;
+        }
         bool internal = _odf->value("TableStore","Col1") != "Ord"; // if not exists it is no table so no datafile
         if ( subtype == "DomainUniqueID" || internal)
             return new ItemDomain<IndexedIdentifier>(_resource);
