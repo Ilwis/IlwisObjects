@@ -55,7 +55,7 @@ public:
         if ( type == "class" || type == "group") {
             _storeType = itUINT8;
             _item = true;
-        } else if ( type == "ident"){
+        } else if ( type == "ident" || type == "id") {
             _storeType = itUINT16;
             _item = true;
         } else
@@ -94,7 +94,7 @@ public:
             return ( (quint32)raw | 0xFF000000); // setting transparency bit to 255 as this is by default not present
 
         }        
-        if (( _item && raw == 0) || (raw == iILW3UNDEF || raw == shILW3UNDEF))
+        if (( _item && raw <= 0) || (raw == iILW3UNDEF || raw == shILW3UNDEF))
             return rUNDEF;
         if (raw == _undefined)
             return rUNDEF;
