@@ -958,9 +958,9 @@ bool RasterToPolygon::execute(ExecutionContext* ctx, SymbolTable& symTable) {
 		}
 		trq()->inform("Link Islands\n");
 		initialize(afBwl.size());
-		for (i = 1; i <= afBwl.size(); ++i) {
+		for (i = 1; i < afBwl.size(); ++i) {
 			trq()->update(1);
-			if (!afBwl[i-1]) {
+			if (!afBwl[i]) {
 				long pol = topology[i].second; // iRightRaw
 				if (pol > 0) {
 					// topology should be linked in polygon
@@ -988,7 +988,7 @@ bool RasterToPolygon::execute(ExecutionContext* ctx, SymbolTable& symTable) {
 					}
 				}
 			}
-			if (!afFwl[i-1]) {
+			if (!afFwl[i]) {
 				long pol = topology[i].first; // iLeftRaw
 				if (pol > 0) {
 					// topology should be linked in polygon
