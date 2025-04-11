@@ -171,8 +171,10 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 						crd.x = centroid->getX();
 						crd.y = centroid->getY();
 						crd.z = 0;
-						QString crdstr = CoordinateFormatString(crd.toString());
-						_outputTable->setCell("CenterCatchment", rec, QVariant(crdstr));
+						//QString crdstr = CoordinateFormatString(crd.toString());
+						QVariant c;
+						c.setValue(crd);
+						_outputTable->setCell("CenterCatchment", rec, c);
 						_outputTable->setCell("Perimeter", rec, length);
 						_outputTable->setCell("CatchmentArea", rec, area);
 
@@ -189,7 +191,7 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 							_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, rUNDEF);
 						}
 
-						_outputfeatures->attributeTable()->setCell("CenterCatchment", rec, QVariant(crdstr));
+						_outputfeatures->attributeTable()->setCell("CenterCatchment", rec, c);
 						_outputfeatures->attributeTable()->setCell("Perimeter", rec, length);
 						_outputfeatures->attributeTable()->setCell("CatchmentArea", rec, area);
 
@@ -451,7 +453,6 @@ Ilwis::OperationImplementation::State MapCatchmentExtraction::prepare(ExecutionC
 		for (int band = 0; band < _outCatchmentRaster->size().zsize(); ++band) {
 			_outCatchmentRaster->datadefRef(band) = def;
 		}
-		return sPREPARED;
 	}
 
 	_outputfeatures.prepare(QString(INTERNAL_CATALOG + "/%1").arg(outputName));
@@ -554,22 +555,7 @@ void MapCatchmentExtraction::GetAttributes()
 		if (ac.DownstreamLink == 0)
 			ac.DownstreamLink = iUNDEF;
 
-		QString coordsStr = colDownstreamCoord[i].toString();
-
-		if (coordsStr.isEmpty())
-			continue;
-
-		coordsStr.replace("{", "");
-		coordsStr.replace("}", "");
-
-		QStringList coodrs = coordsStr.split(" ");
-
-		QString xstr = coodrs[0];
-		QString ystr = coodrs[1];
-
-		Coordinate crd;
-		crd.x = xstr.toDouble();
-		crd.y = ystr.toDouble();
+		Coordinate crd = colDownstreamCoord[i].value<Coordinate>();
 		crd.z = 0;
 		ac.DownstreamCoord = _inDrngOrderRaster->georeference()->coord2Pixel(crd);
 
@@ -635,7 +621,10 @@ void MapCatchmentExtraction::ComputeCatchmentAttributes()
 	ColumnDefinition& coldef3 = _outputTable->columndefinitionRef("CatchmentArea");
 	coldef3.datadef().range(new NumericRange(1, 1.0e300, 0.01));
 
-	_outputTable->addColumn("CenterCatchment", IlwisObject::create<IDomain>("text"), true);
+	ICoordinateDomain crddom;
+	crddom.prepare();
+	crddom->setCoordinateSystem(_csy);
+	_outputTable->addColumn("CenterCatchment", crddom, true);
 
 	_outputTable->addColumn("TotalUpstreamArea", IlwisObject::create<IDomain>("value"));
 	ColumnDefinition& coldef4 = _outputTable->columndefinitionRef("TotalUpstreamArea");
@@ -885,7 +874,10 @@ void MapCatchmentExtraction::ComputeCenterDrainage()
 	std::vector<QVariant> colPrimaryKey = tblAtt->column(_inDrngOrderRaster->primaryKey());
 
 
-	_outputTable->addColumn("CenterDrainage", IlwisObject::create<IDomain>("text"));
+	ICoordinateDomain crddom;
+	crddom.prepare();
+	crddom->setCoordinateSystem(_csy);
+	_outputTable->addColumn("CenterDrainage", crddom);
 
 	long iSize = colPrimaryKey.size();
 	for (long i = 0; i < iSize; i++)
@@ -894,19 +886,7 @@ void MapCatchmentExtraction::ComputeCenterDrainage()
 		if (iDrainageID == iUNDEF )
 			continue;
 
-		QString coordsStr = colUpstreamCoord[i].toString();
-
-		if (coordsStr.isEmpty())
-			continue;
-
-		coordsStr.replace("(", "");
-		coordsStr.replace(")", "");
-
-		coordsStr.replace("{", "");
-		coordsStr.replace("}", "");
-
-		Coordinate crd = Coordinate(coordsStr);
-
+		Coordinate crd = colUpstreamCoord[i].value<Coordinate>();
 		crd.z = 0;
 		Pixel pxl = _inDrngOrderRaster->georeference()->coord2Pixel(crd);
 		double rLength = colLength[i].toDouble() / 2;
@@ -923,22 +903,11 @@ void MapCatchmentExtraction::ComputeCenterDrainage()
 		pxl.y -= 1;
 
 		crd = _inDrngOrderRaster->georeference()->pixel2Coord(pxl);
-
-		QString crdstr = CoordinateFormatString(crd.toString());
-		_outputTable->setCell("CenterDrainage", iDrainageID,QVariant(crdstr));
-
+		QVariant c;
+		c.setValue(crd);
+		_outputTable->setCell("CenterDrainage", iDrainageID, c);
 	}
 }
-
-
-QString MapCatchmentExtraction::CoordinateFormatString(QString crd)
-{
-	QString crdstring;
-	crdstring = QString("{") + crd;
-	crdstring = crdstring + QString("}");
-	return crdstring;
-}
-
 
 long MapCatchmentExtraction::DelineateCatchment(Pixel pxl, long iFlag)
 {

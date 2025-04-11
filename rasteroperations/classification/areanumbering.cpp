@@ -259,7 +259,7 @@ bool AreaNumbering::execute(ExecutionContext *ctx, SymbolTable& symTable)
 
     IFlatTable newTable;
     newTable.prepare();
-    newTable->addColumn(QFileInfo(inRaster->name()).baseName(), inRaster->datadef().domain<>());
+    newTable->addColumn(QFileInfo(_inputObj->name()).baseName(), inRaster->datadef().domain<>()); // use the name of the original input (inRaster is the cloned one)
     newTable->addColumn("npix", IlwisObject::create<IDomain>("count"));
     //false in case ofunrealistic or unreliable pixsize (e.g. latlon) or no georef att all
     double rPixelSize = inRaster->georeference()->isValid() ? inRaster->georeference()->pixelSize() : rUNDEF;

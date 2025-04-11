@@ -435,8 +435,8 @@ void BinaryIlwis3Table::storeRecord(std::ofstream& output_file, const std::vecto
                         output_file.write((char *)&v, 8);
                         v = crd.y;
                         output_file.write((char *)&v, 8);
-                        v = 0;
-                        output_file.write((char *)&v, 8);
+                        // v = 0;
+                        // output_file.write((char *)&v, 8);
                     }
                 } else {
                     Coordinate crd =  rec[x].value<Coordinate>();
@@ -444,8 +444,8 @@ void BinaryIlwis3Table::storeRecord(std::ofstream& output_file, const std::vecto
                     output_file.write((char *)&v, 8);
                     v = crd.y;
                     output_file.write((char *)&v, 8);
-                    v = 0;
-                    output_file.write((char *)&v, 8);
+                    // v = 0;
+                    // output_file.write((char *)&v, 8);
                 }
             } else if (tp == itCOLORDOMAIN) {
                 QColor val = rec[x].value<QColor>();

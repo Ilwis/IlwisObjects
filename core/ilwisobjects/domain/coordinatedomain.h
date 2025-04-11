@@ -24,7 +24,7 @@ namespace Ilwis {
  * The CoordinateDomain class implements a coordinate based type of domain
  * all coordinates are in x y z unless specified otherwise
  */
-class CoordinateDomain : public Domain
+class KERNELSHARED_EXPORT CoordinateDomain : public Domain
 {
 public:
     /*!
@@ -91,11 +91,13 @@ public:
      * \return the ICoordinateSystem
      */
     ICoordinateSystem coordinateSystem() const;
+    void setCoordinateSystem(ICoordinateSystem& csy);
 
     /**
      * empty function only here to fill the interface
      */
     void range(Range *);
+    bool isOrdered() const;
 
 protected:
     SPRange getRange() const;

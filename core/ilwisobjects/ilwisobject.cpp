@@ -709,6 +709,8 @@ QString IlwisObject::type2Name(IlwisTypes t)
         return "ItemDomain";
     case  itCOLORDOMAIN:
         return "ColorDomain";
+    case itCOORDDOMAIN:
+        return "CoordinateDomain";
     case  itTEXTDOMAIN:
         return "TextDomain";
     case  itCOORDSYSTEM:
@@ -796,6 +798,8 @@ IlwisTypes IlwisObject::name2Type(const QString& dname)
         return  itTEXTDOMAIN;
     if ( name.compare( "ColorDomain",Qt::CaseInsensitive) == 0)
         return  itCOLORDOMAIN;
+    if (name.compare("CoordinateDomain", Qt::CaseInsensitive) == 0)
+        return  itCOORDDOMAIN;
     if ( name.compare( "Domain",Qt::CaseInsensitive) == 0)
         return  itDOMAIN;
     if ( name.compare( "CoordinateSystem",Qt::CaseInsensitive) == 0)

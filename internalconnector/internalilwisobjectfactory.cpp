@@ -36,6 +36,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "connectorfactory.h"
 #include "ilwisobjectfactory.h"
 #include "textdomain.h"
+#include "coordinatedomain.h"
 #include "numericrange.h"
 #include "numericdomain.h"
 #include "domainitem.h"
@@ -576,12 +577,15 @@ IlwisObject *InternalIlwisObjectFactory::createDomain(const Resource& resource, 
         ContinuousColorRange *rng = new ContinuousColorRange(QColor("#000000"), QColor("#FFFFFF"));
         dm->range(rng);
         return dm;
-    }else if ( resource.ilwisType() == itCOLORDOMAIN || resource.code() == "colorpalette") {
+    } else if ( resource.ilwisType() == itCOLORDOMAIN || resource.code() == "colorpalette") {
         ColorDomain *dm = createFromResource<ColorDomain>(resource, options);
         Range *rng = new ColorPalette();
         dm->range(rng);
         return dm;
+    } else if ( resource.ilwisType() == itCOORDDOMAIN || resource.code() == "coordinatedomain") {
+        return createFromResource<CoordinateDomain>(resource, options);
     }
+
     QString code = resource.code();
     Domain *newdomain = 0;
     bool readonlyState = false;

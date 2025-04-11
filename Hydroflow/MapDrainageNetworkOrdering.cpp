@@ -41,6 +41,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "geos/geom/CoordinateSequenceFactory.h"
 #include "geos/geom/GeometryFactory.h"
 #include "geos/geom/LineString.h"
+#include "coordinatedomain.h"
 #include "ellipsoid.h"
 #include "itemdomain.h"
 #include "thematicitem.h"
@@ -941,18 +942,9 @@ bool DrainageNetworkOrdering::IsAllUpstreamIdentified(Pixel node, std::vector<lo
 		}
 	}
 
-	m_sUpstreamLink = CoordinateFormatString(m_sUpstreamLink);
+	m_sUpstreamLink = QString("{") + m_sUpstreamLink + QString("}");
 	return true;
 
-}
-
-
-QString DrainageNetworkOrdering::CoordinateFormatString(QString crd)
-{
-	QString crdstring;
-	crdstring = QString("{") + crd;
-	crdstring = crdstring + QString("}");
-	return crdstring;
 }
 
 void DrainageNetworkOrdering::AddDomainItem(long iItem)
@@ -1048,14 +1040,23 @@ void DrainageNetworkOrdering::CreateTable(long maxStrahler)
 
 	//newTable->addColumn("StreamID", _orderDomain);
 	newTable->addColumn("UpstreamLinkID", IlwisObject::create<IDomain>("text"),true);
-	newTable->addColumn("UpstreamCoord", IlwisObject::create<IDomain>("text"));
+
+	ICoordinateDomain crddom1;
+	crddom1.prepare();
+	crddom1->setCoordinateSystem(_csy);
+	newTable->addColumn("UpstreamCoord", crddom1);
+
 	newTable->addColumn("UpstreamElevation", IlwisObject::create<IDomain>("value"));
 	newTable->addColumn("DownstreamLinkID", IlwisObject::create<IDomain>("value"));
 
 	ColumnDefinition& coldef0 = newTable->columndefinitionRef("DownstreamLinkID");
 	coldef0.datadef().range(new NumericRange(1, 32767, 1));
 
-	newTable->addColumn("DownstreamCoord", IlwisObject::create<IDomain>("text"), true);
+	ICoordinateDomain crddom2;
+	crddom2.prepare();
+	crddom2->setCoordinateSystem(_csy);
+	newTable->addColumn("DownstreamCoord", crddom2, true);
+
 	newTable->addColumn("DownstreamElevation", IlwisObject::create<IDomain>("value"));
 	newTable->addColumn("ElevationDifference", IlwisObject::create<IDomain>("value"));
 	newTable->addColumn("Strahler", IlwisObject::create<IDomain>("value"), true);
@@ -1092,7 +1093,10 @@ void DrainageNetworkOrdering::CreateTable(long maxStrahler)
 
 	newTable->addColumn("TotalUpstreamAlongDrainageLength", IlwisObject::create<IDomain>("value"));
 
-	newTable->addColumn("TostreamCoord", IlwisObject::create<IDomain>("text"), true);
+	ICoordinateDomain crddom3;
+	crddom3.prepare();
+	crddom3->setCoordinateSystem(_csy);
+	newTable->addColumn("TostreamCoord", crddom3, true);
 
 	if (maxStrahler > 0) {
 		IThematicDomain strahlerDomain;
@@ -1154,8 +1158,9 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 			Pixel pxl = rec.UpstreamCoord;
 			Coordinate c1 = _inRaster->georeference()->pixel2Coord(pxl);
-			QString crd = c1.toString();
-			_outputTable->setCell("UpstreamCoord", record, QVariant(CoordinateFormatString(crd)));
+			QVariant c1a;
+			c1a.setValue(c1);
+			_outputTable->setCell("UpstreamCoord", record, c1a);
 
 			rUpstreamHeight = *iterDEM(pxl);
 			_outputTable->setCell("UpstreamElevation", record, QVariant(rUpstreamHeight));
@@ -1165,8 +1170,9 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 			pxl = rec.DownstreamCoord;
 			Coordinate c2 = _inRaster->georeference()->pixel2Coord(pxl);
-			crd = c2.toString();
-			_outputTable->setCell("DownstreamCoord", record, QVariant(CoordinateFormatString(crd)));
+			QVariant c2a;
+			c2a.setValue(c2);
+			_outputTable->setCell("DownstreamCoord", record, c2a);
 
 			rDownstreamHeight = *iterDEM(pxl);
 			_outputTable->setCell("DownstreamElevation", record, QVariant(rDownstreamHeight));
@@ -1200,9 +1206,10 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 			Pixel pxl1 = rec.TostreamCoord;
 			Coordinate c = _inRaster->georeference()->pixel2Coord(pxl1);
-			QString crdc = c.toString();
+			QVariant c3;
+			c3.setValue(c);
 
-			_outputTable->setCell("TostreamCoord", record, QVariant(CoordinateFormatString(crdc)));
+			_outputTable->setCell("TostreamCoord", record, c3);
 
 			_outputTable->setCell("StrahlerClass", record, QVariant(QString("Strahler %1").arg(rec.Strahler)));
 
