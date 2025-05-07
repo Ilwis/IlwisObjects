@@ -74,7 +74,6 @@ namespace Ilwis {
 		protected:
 			bool executeCatchmentMerging();
 			void CreateTable();
-			void CreatePolygonMap();
 			void AddLink2StreamSegments();
 			void InitOutletVector();
 			Pixel CoordinateStringToPixel(QString coordStr);
@@ -121,7 +120,7 @@ namespace Ilwis {
 			void ExtractSegments();
 			void CleanSegment(IFeatureCoverage smpTo, IFeatureCoverage smpFrom);
 			void CreateTableSegmentsExtracted();
-			std::vector<long> GetSegmentIDsExtracted();
+			std::vector<long> GetSegmentIDsExtracted(int iCatch);
 			void CreatePolygonTableElements();
 		protected:
 			void InitInOutMaps();
