@@ -41,7 +41,6 @@ public:
     virtual bool storeBinaryData(IlwisObject* ) { return false; }
     virtual bool storeMetaData(IlwisObject*, const IOOptions& options=IOOptions() )  { return false; }
     bool isReadOnly() const;
-    QString unquote(const QString &name) const;
 
     bool store(IlwisObject *, const IOOptions& options = IOOptions());
 
@@ -52,8 +51,6 @@ protected:
     bool loadMetaData(IlwisObject* data,const IOOptions&);
     bool storeMetaData(const IlwisObject* data, IlwisTypes type) const;
     QString adjustPath(const QUrl& container, const QString& filename) const;
-    QString unquote(const QString& name);
-
 
     QString ilwis3ClassName(IlwisTypes type) const;
     QString datum2Code(const QString& name, const QString& area) const;

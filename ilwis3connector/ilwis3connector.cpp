@@ -213,18 +213,10 @@ QString Ilwis3Connector::provider() const
 
 bool Ilwis3Connector::isReadOnly() const
 {
-    return false; // ilwis3 data is file based so basically reading/writing is allowd. any deviations from it are taken into account in the odf and thus already registered in the status of the ilwis object itself
-}
-
-QString Ilwis3Connector::unquote(const QString &name) const
-{
-    if ( name == sUNDEF || name == "")
-        return name;
-    if ( name[0] != QChar('\''))
-        return name;
-    QString newname = name;
-    return newname.remove("'");
-
+    // ilwis3 data is file based so basically reading/writing is allowed.
+    // Any deviations from it are taken into account in the odf and thus
+    // already registered in the status of the ilwis object itself
+    return false;
 }
 
 bool Ilwis3Connector::store(IlwisObject *obj, const IOOptions &options)
@@ -375,7 +367,7 @@ QUrl Ilwis3Connector::resolve(const Resource& resource) const {
 }
 
 QString Ilwis3Connector::filename2FullPath(const QString& name, const Resource& owner) const {
-    QString localName = unquote(name);
+    QString localName = name.remove("'");
     if ( localName.toLower() == "none.grf")
         return "code=georef:undetermined";
     if ( localName != sUNDEF) {
