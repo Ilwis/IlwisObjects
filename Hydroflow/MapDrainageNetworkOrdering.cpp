@@ -151,8 +151,18 @@ Ilwis::OperationImplementation::State DrainageNetworkOrdering::prepare(Execution
 		ERROR2(ERR_COULD_NOT_LOAD_2, flowraster, "");
 		return sPREPAREFAILED;
 	}
-
-	_inFldRaster.set(_inFldRaster->clone());
+	// Check if we are dealing with FlowDirection.dom; if yes, then recalc raw vals of flow direction map. We also allow Value maps with values 0 til 8 (0 = flat / undef, 1 til 8 are the directions).
+	IDomain itemdom = _inFldRaster->datadefRef().domain();
+	if (itemdom.isValid() && hasType(itemdom->valueType(), itTHEMATICITEM | itNUMERICITEM | itTIMEITEM | itNAMEDITEM)) {
+		_inFldRaster.set(_inFldRaster->clone());
+		PixelIterator iterFld = PixelIterator(_inFldRaster, BoundingBox(), PixelIterator::fXYZ);
+		PixelIterator iterFldEnd = iterFld.end();
+		while (iterFld != iterFldEnd)
+		{
+			*iterFld = (*iterFld != rUNDEF) ? (*iterFld + 1) : 0; // shift the values, to make them the same as ilwis3 (0 is undef, 1..8 are the direction)
+			++iterFld;
+		}
+	}
 
 	if (!_inDrainageRaster.prepare(drnetwkraster, itRASTER)) {
 		ERROR2(ERR_COULD_NOT_LOAD_2, drnetwkraster, "");
@@ -242,11 +252,11 @@ bool DrainageNetworkOrdering::executeDrainageNetworkOrdering()
 	double maxDrainage = stats[NumericStatistics::pMAX];
 	iterInRawDrainage = PixelIterator(_inDrainageRaster, BoundingBox(), PixelIterator::fXYZ); // rewind
 
-	// Check if we are dealing with FlowDirection.dom; if yes, then recalc raw vals of flow direction map. We also allow Value maps with values 0 til 8 (0 = flat / undef, 1 til 8 are the directions).
-	bool itemdomain = false;
-	IDomain dom = _inFldRaster->datadefRef().domain();
-	if (dom.isValid() && hasType(dom->valueType(), itTHEMATICITEM | itNUMERICITEM | itTIMEITEM | itNAMEDITEM))
-		itemdomain = true;
+	//// Check if we are dealing with FlowDirection.dom; if yes, then recalc raw vals of flow direction map. We also allow Value maps with values 0 til 8 (0 = flat / undef, 1 til 8 are the directions).
+	//bool itemdomain = false;
+	//IDomain dom = _inFldRaster->datadefRef().domain();
+	//if (dom.isValid() && hasType(dom->valueType(), itTHEMATICITEM | itNUMERICITEM | itTIMEITEM | itNAMEDITEM))
+	//	itemdomain = true;
 
 	PixelIterator iterDrainage = PixelIterator(_outDrainageRaster, BoundingBox(), PixelIterator::fXYZ);
 	PixelIterator inEnd = iterDEM.end();
@@ -279,8 +289,8 @@ bool DrainageNetworkOrdering::executeDrainageNetworkOrdering()
 		}
 		if (IsEdgeCell(pxl) || *iterFld(pxl) == rUNDEF )
 			*iterFld(pxl) = 0;
-		else if (itemdomain)
-			++*iterFld(pxl); // convert back to FlowDirection raw values whereby 0=flat, 1..8 are the direction
+		//else if (itemdomain)
+		//	++*iterFld(pxl); // convert back to FlowDirection raw values whereby 0=flat, 1..8 are the direction
 
 		iterPos++;
 	}
@@ -320,7 +330,7 @@ bool DrainageNetworkOrdering::executeDrainageNetworkOrdering()
 						iLink = IdentifyLink(pxl);
 						
 						PatchSegment(tmpfeatures, m_vRecords[iIndex].id);
-						
+
 						m_vRecords[iIndex].DownstreamCoord = m_vStreamLink[m_vStreamLink.size() - 1];
 						m_vRecords[iIndex].TostreamCoord = m_vStreamLink[m_vStreamLink.size() - 1];
 						if (iLink == iJunction)
@@ -1098,14 +1108,18 @@ void DrainageNetworkOrdering::CreateTable(long maxStrahler)
 	crddom3->setCoordinateSystem(_csy);
 	newTable->addColumn("TostreamCoord", crddom3, true);
 
-	if (maxStrahler > 0) {
+	newTable->addColumn("StrahlerClass", IlwisObject::create<IDomain>("value"), true);
+	ColumnDefinition& strahlerClass = newTable->columndefinitionRef("StrahlerClass");
+	strahlerClass.datadef().range(new NumericRange(1, 32767, 1));
+	
+	/*if (maxStrahler > 0) {
 		IThematicDomain strahlerDomain;
 		strahlerDomain.prepare();
 		for (long i = 1; i <= maxStrahler; ++i) {
 			strahlerDomain->addItem(new ThematicItem(QString("Strahler %1").arg(i), "", ""));
 		}
 		newTable->addColumn("StrahlerClass", strahlerDomain, true);
-	}
+	}*/
 
 	_outputTable = newTable;
 }
@@ -1211,7 +1225,7 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 			_outputTable->setCell("TostreamCoord", record, c3);
 
-			_outputTable->setCell("StrahlerClass", record, QVariant(QString("Strahler %1").arg(rec.Strahler)));
+			_outputTable->setCell("StrahlerClass", record, QVariant(rec.Strahler));
 
 			_outputTable->setCell(_outDrainageRaster->primaryKey(), record, QVariant(record));
 		}
