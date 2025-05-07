@@ -45,6 +45,9 @@
     <ClCompile Include="Hydroflow\MapOverlandFlowLength.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Hydroflow\MapFlowLengthToOutlet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="Hydroflow\hydroflow_module.h">
@@ -86,6 +89,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Hydroflow\MapOverlandFlowLength.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hydroflow\MapFlowLengthToOutlet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
