@@ -162,7 +162,7 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 				for (int rec = 0; rec < count; ++rec) {
 					const SPFeatureI& feature = _outputfeatures->feature(rec);
 					quint64 id = feature->featureid();
-					geos::geom::Polygon* polygon = dynamic_cast<geos::geom::Polygon*>(feature->geometry().get());
+					geos::geom::Geometry* polygon = dynamic_cast<geos::geom::Geometry*>(feature->geometry().get());
 					if (polygon) {
 						double area = polygon->getArea();
 						double length = polygon->getLength();
@@ -171,7 +171,6 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 						crd.x = centroid->getX();
 						crd.y = centroid->getY();
 						crd.z = 0;
-						//QString crdstr = CoordinateFormatString(crd.toString());
 						QVariant c;
 						c.setValue(crd);
 						_outputTable->setCell("CenterCatchment", rec, c);
@@ -197,33 +196,6 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 
 					}
 
-					/*		Ilwis::IFeatureCoverage polygons(result._var.value<Ilwis::IFeatureCoverage>());
-							quint32 count = polygons->featureCount();
-							quint32 recordcount = _outputTable->recordCount();
-							for (int rec = 0; rec < count; ++rec) {
-								SPFeatureI& feature = polygons->feature(rec);
-								quint64 id = feature->featureid();
-								geos::geom::Polygon* polygon = dynamic_cast<geos::geom::Polygon*>(feature->geometry().get());
-								if (polygon) {
-									double area = polygon->getArea();
-									double length = polygon->getLength();
-									geos::geom::Point * centroid = polygon->getInteriorPoint();
-									Coordinate crd;
-									crd.x = centroid->getX();
-									crd.y = centroid->getY();
-									crd.z = 0;
-									QString crdstr = CoordinateFormatString(crd.toString());
-									_outputTable->setCell("CenterCatchment", rec, QVariant(crdstr));
-									_outputTable->setCell("Perimeter", rec, length);
-									_outputTable->setCell("CatchmentArea", rec, area);
-
-									AttUpstreamLink vULs(m_vvUpstreamLinks[rec]);
-
-									if (vULs.UpstreamLink.size() == 1 && vULs.UpstreamLink[0] == 0)
-										_outputTable->setCell("TotalUpstreamArea", rec, area);
-									else
-										_outputTable->setCell("TotalUpstreamArea", rec, rUNDEF);
-								}*/
 				}
 			}
 
@@ -318,71 +290,6 @@ bool MapCatchmentExtraction::executeCatchmentExtraction()
 	m_vRecords.resize(0);
 	SetAttributeTable();
 
-
-
-	//bool canConnect;
-	//NetworkPoint previousPoint;
-	//std::vector<PrevLinePoint> previousLine(_outCatchmentRaster->size().xsize());
-	//BlockIterator iterBlock(_outCatchmentRaster, Size<>(3, 3, 1), BoundingBox(), { 1,1,1 }, true);
-	//BlockIterator end = iterBlock.end();
-	//while (iterBlock != end) {
-	//	auto block = (*iterBlock).to3DVector();
-	//	if (block.size() == 1)
-	//		continue;
-	//	GridBlock& blockOut = *iterBlock;
-
-	//	auto currentValue = block[1][1][0];
-	//	auto pCenter = (*iterBlock).position();
-	//	if (currentValue != block[0][1][0] && currentValue != block[0][0][0]) {
-	//		// temporary points are points that do not end up in the network but are in _previousLine. As they represent a
-	//		// intermediate point on a straight vertical line segment they have no place in the final network but are needed
-	//		// to give the _previousline the correct linkage.
-	//		bool  isTempPoint = block[0][0][0] != currentValue &&
-	//			block[0][0][0] == block[0][2][0] &&
-	//			currentValue == block[0][1][0];
-	//		if (canConnect) {
-	//			previousPoint = makeConnection(pCenter, isTempPoint, previousLine);
-	//		}
-	//		canConnect = true;
-	//	}
-	//	// if the topmid value equals the current value we are looking at a point in the middle of a filled area. so no lines we be drawn here
-	//	if (block[1][1][0] == currentValue) {
-	//		canConnect = false;
-	//		previousPoint = NetworkPoint();
-	//	}
-	//}
-
-
-
-
-	//Check the type of coordinate system  
-	//if (fLatLonCoords())
-	//{
-	//	//Transform the map to Lambert Cylind EqualArea projection coordinate system needed to be able
-	//	//to calculate the perimeter and area parameters
-	//	//LAMCYL is a pre-defined coordinate system, should be placed in the ILWIS system directory
-	//	FileName fnTmpTFPol(fnObj, ".mpa");
-	//	fnTmpTFPol = FileName::fnUnique(fnTmpTFPol);
-	//	//String sExprPMT("PolygonMapTransform(%S, %S, %g)", fnPol.sFullPathQuoted(false), String("lamcyl"), 0.000000); 
-	//	CoordSystem csy = csyLamCyl(fnTmpTFPol);
-	//	csy->Store(); // explicit Store(), due to different behavior between Debug and Release build!! (csyLamCyl will auto-store when the internal csy object is destructed (as it is supposed to do) in the debug build, but not in the release build)
-	//	csy->fErase = true;
-	//	String sExprPMT("PolygonMapTransform(%S, %S, %g)", fnPol.sFullPathQuoted(false), csy->sName(), 0.000000);
-	//	PolygonMap polTmpTFMap;
-	//	polTmpTFMap = PolygonMap(fnTmpTFPol, sExprPMT);
-	//	polTmpTFMap->Calc();
-	//	polTmpTFMap->fErase = true;
-	//	//***a temporary histogram file needed to retrieve attributes about Area and Perimeter   
-	//	fnTmpHsa = FileName(fnTmpTFPol, ".hsa");
-	//	sExprTbl = String("TableHistogramPol(%S)", fnTmpTFPol.sFullPathQuoted());
-	//	tblHsa = Table(fnTmpHsa, sExprTbl);
-	//}
-	//else
-	//{
-	//	fnTmpHsa = FileName(fnObj, ".hsa");
-	//	sExprTbl = String("TableHistogramPol(%S)", fnPol.sFullPathQuoted());
-	//	tblHsa = Table(fnTmpHsa, sExprTbl);
-	//}
 
 	ComputeCatchmentAttributes();
 	ComputeCenterDrainage();
@@ -903,6 +810,7 @@ void MapCatchmentExtraction::ComputeCenterDrainage()
 		pxl.y -= 1;
 
 		crd = _inDrngOrderRaster->georeference()->pixel2Coord(pxl);
+		crd.z = 0;
 		QVariant c;
 		c.setValue(crd);
 		_outputTable->setCell("CenterDrainage", iDrainageID, c);
