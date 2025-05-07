@@ -162,7 +162,7 @@ quint64 MapOverlandFlowLength::createMetadata()
 
 }
 
-void InitFlowNums(std::vector<byte>& vReceiveNum)
+void MapOverlandFlowLength::InitFlowNums(std::vector<byte>& vReceiveNum)
 {
 	//	Flow number				Receive number			Loop ordering
 	//	-------								-------					-------	  	
@@ -224,9 +224,10 @@ bool MapOverlandFlowLength::executeLandFlowLength()
 		if (iDrainageID == iUNDEF)
 			continue;
 
-		Pixel downCoord = CoordinateStringToPixel(colDownstreamCoord[i].toString());
+		Pixel downCoord = _inDrainRaster->georeference()->coord2Pixel(colDownstreamCoord[i].value<Coordinate>());
 		downCoord.z = 0;
-		m_rcUpstream = CoordinateStringToPixel(colUpstreamCoord[i].toString());
+		m_rcUpstream = _inDrainRaster->georeference()->coord2Pixel(colUpstreamCoord[i].value<Coordinate>());
+		m_rcUpstream.z = 0;
 
 		//---here also upstream links needed to be able to process drainage links seperately
 		std::vector<long> vUpstreamLinks;
@@ -259,25 +260,6 @@ void MapOverlandFlowLength::SplitString(QString s, QString mid, std::vector<long
 		if (res != iUNDEF && res>0 )
 			results.push_back(res);
 	}
-}
-
-
-
-Pixel MapOverlandFlowLength::CoordinateStringToPixel(QString coordStr)
-{
-	coordStr.replace("{", "");
-	coordStr.replace("}", "");
-
-	QStringList coodrs = coordStr.split(" ");
-
-	QString xstr = coodrs[0];
-	QString ystr = coodrs[1];
-
-	Coordinate crd;
-	crd.x = xstr.toDouble();
-	crd.y = ystr.toDouble();
-	crd.z = 0;
-	return _inDrainRaster->georeference()->coord2Pixel(crd);
 }
 
 

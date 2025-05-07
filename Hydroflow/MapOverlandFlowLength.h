@@ -60,13 +60,13 @@ namespace Ilwis {
 
 		private:
 			bool executeLandFlowLength();
-			Pixel CoordinateStringToPixel(QString coordStr);
 			void SplitString(QString s, QString mid, std::vector<long>& results);
 			void Lengths2Stream(long iStreamID, Pixel rc, bool);
 			void Lengths2Divide(long iStreamID, Pixel rc);
 			bool fLatLonCoords();
 			double rDistance(Coordinate cd1, Coordinate cd2);
 			bool IsEdgeCell(Pixel pxl);
+			void InitFlowNums(std::vector<byte>& vReceiveNum);
 
 			NEW_OPERATION(MapOverlandFlowLength);
 		};
