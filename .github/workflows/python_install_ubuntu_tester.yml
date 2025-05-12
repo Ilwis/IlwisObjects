@@ -1,4 +1,4 @@
-name: Testing the installation of Python
+name: Testing the installation of Python on Ubuntu
 
 on:
   workflow_dispatch:
@@ -11,13 +11,43 @@ jobs:
       image: ubuntu:20.04
 
     steps:
+    - uses: actions/checkout@v4
+    # - name: install python
+    #   uses: actions/setup-python@v5
+    #   with:
+    #       # Semantic version range syntax or exact version of a Python version
+    #       python-version: '3.11'
+    #       # Optional - x64 or x86 architecture, defaults to x64
+    #       architecture: 'x64'
     - name: install python
-      uses: actions/setup-python@v5
-      with:
-          # Semantic version range syntax or exact version of a Python version
-          python-version: '3.11'
-          # Optional - x64 or x86 architecture, defaults to x64
-          architecture: 'x64'
+      run: |
+           apt-get install wget
+           wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+           sh ./Miniconda3-latest-Linux-x86_64.sh -b
+           /github/home/miniconda3/bin/conda init
+           conda create --name custompython python=3.11
+           conda activate custompython
+    - name: install dependencies
+      run: |
+           apt-get install build-essential
+           apt-get install qt5-qmake
+           apt-get install qtbase5-dev
+           # apt-get install python3-dev
+           apt-get install libquazip5-dev
+           apt-get install libboost-dev
+           apt-get install libgdal-dev
+           apt-get install libgsl-dev
+           apt-get install libeigen3-dev
+           apt-get install libnetcdf-c++4-dev
+           apt-get install swig3.0
+    - name: install python packages
+      run: |
+           python3 -m pip install --upgrade pip
+           python3 -m pip install wheel setuptools twine
+    - name: patch
+      run: |
+           python3 patch_pythonapi_linux.py
+           ln -s /usr/include/quazip5/ ilwis4connector/quazip
     - name: Setup tmate session
       if: success() || failure()
       uses: mxschmitt/action-tmate@v3
