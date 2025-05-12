@@ -12,26 +12,25 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: install python
-      uses: actions/setup-python@v5
-      with:
-          # Semantic version range syntax or exact version of a Python version
-          python-version: '3.11'
-          # Optional - x64 or x86 architecture, defaults to x64
-          architecture: 'x64'
     # - name: install python
-    #   run: |
-    #        apt-get update
-    #        apt-get -y install wget
-    #        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    #        sh ./Miniconda3-latest-Linux-x86_64.sh -b
-    #        /github/home/miniconda3/bin/conda init
-    #        . /github/home/.bashrc
-    #        conda create -y --name custompython python=3.11
-    #        conda activate custompython
-    - name: install dependencies
+    #   uses: actions/setup-python@v5
+    #   with:
+    #       # Semantic version range syntax or exact version of a Python version
+    #       python-version: '3.11'
+    #       # Optional - x64 or x86 architecture, defaults to x64
+    #       architecture: 'x64'
+    - name: install python
       run: |
            apt-get update
+           apt-get -y install wget
+           wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+           sh ./Miniconda3-latest-Linux-x86_64.sh -b
+           /github/home/miniconda3/bin/conda init
+           . /github/home/.bashrc
+           conda create -y --name custompython python=3.11
+           conda activate custompython
+    - name: install dependencies
+      run: |
            apt-get -y install build-essential
            DEBIAN_FRONTEND=noninteractive apt-get -y install tzdata
            apt-get -y install qt5-qmake
@@ -46,14 +45,14 @@ jobs:
            apt-get -y install swig3.0
     - name: install python packages
       run: |
-           # . /github/home/.bashrc
-           # conda activate custompython
+           . /github/home/.bashrc
+           conda activate custompython
            python3 -m pip install --upgrade pip
            python3 -m pip install wheel setuptools twine
     - name: patch
       run: |
-           # . /github/home/.bashrc
-           # conda activate custompython
+           . /github/home/.bashrc
+           conda activate custompython
            python3 patch_pythonapi_linux.py
            ln -s /usr/include/quazip5/ ilwis4connector/quazip
     - name: Setup tmate session
