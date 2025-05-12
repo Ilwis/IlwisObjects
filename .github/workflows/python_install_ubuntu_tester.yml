@@ -45,10 +45,14 @@ jobs:
            apt-get -y install swig3.0
     - name: install python packages
       run: |
+           . /github/home/.bashrc
+           conda activate custompython
            python3 -m pip install --upgrade pip
            python3 -m pip install wheel setuptools twine
     - name: patch
       run: |
+           . /github/home/.bashrc
+           conda activate custompython
            python3 patch_pythonapi_linux.py
            ln -s /usr/include/quazip5/ ilwis4connector/quazip
     - name: Setup tmate session
