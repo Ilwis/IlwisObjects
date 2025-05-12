@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:20.04
+    strategy:
+      matrix:
+        python-version: ['3.13']
 
     steps:
     - uses: actions/checkout@v4
@@ -27,7 +30,7 @@ jobs:
            sh ./Miniconda3-latest-Linux-x86_64.sh -b
            /github/home/miniconda3/bin/conda init
            . /github/home/.bashrc
-           conda create -y --name custompython python=3.11
+           conda create -y --name custompython python=${{ matrix.python-version }}
            conda activate custompython
     - name: install dependencies
       run: |
