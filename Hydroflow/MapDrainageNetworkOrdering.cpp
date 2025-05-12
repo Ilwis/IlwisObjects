@@ -1225,7 +1225,7 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 			_outputTable->setCell("TostreamCoord", record, c3);
 
-			_outputTable->setCell("StrahlerClass", record, QVariant(rec.Strahler));
+			_outputTable->setCell("StrahlerClass", record, QVariant((int)rec.Strahler));
 
 			_outputTable->setCell(_outDrainageRaster->primaryKey(), record, QVariant(record));
 		}
