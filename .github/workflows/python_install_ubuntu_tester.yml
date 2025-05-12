@@ -26,6 +26,7 @@ jobs:
            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
            sh ./Miniconda3-latest-Linux-x86_64.sh -b
            /github/home/miniconda3/bin/conda init
+           source /github/home/.bashrc
            conda create --name custompython python=3.11
            conda activate custompython
     - name: install dependencies
