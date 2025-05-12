@@ -179,6 +179,7 @@ namespace Ilwis {
 
 			ITable _outputPathTable;
 			ITable _outputExtractSegTable;
+			ICoordinateSystem _csy;
 			IGeoReference _inputgrf;
 
 			std::vector<geos::geom::Geometry*> lines;

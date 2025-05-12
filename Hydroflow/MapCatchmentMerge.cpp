@@ -136,7 +136,7 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 
 					for (int rec = 0; rec < count; ++rec)
 					{
-						SPFeatureI& feature = _outputPolygonMap->feature(rec);
+						const SPFeatureI& feature = _outputPolygonMap->feature(rec);
 						quint64 id = feature->featureid();
 						geos::geom::Geometry* polygon = dynamic_cast<geos::geom::Geometry*>(feature->geometry().get());
 						if (polygon)
@@ -325,6 +325,7 @@ Ilwis::OperationImplementation::State MapCatchmentMerge::prepare(ExecutionContex
 	spGrf->internalEnvelope(_inDrngOrderRaster->envelope());
 	grf->compute(); // all members are set, now the initialization can take place
 	_inputgrf = grf;
+	_csy = _inputgrf->coordinateSystem();
 
 
 	//////////////////////////////////////////////////////////////////////////////
@@ -512,7 +513,7 @@ void MapCatchmentMerge::CreatePolygonTableElements()
 {
 	ICoordinateDomain crddom;
 	crddom.prepare();
-	crddom->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom->setCoordinateSystem(_csy);
 	_outputTable->addColumn("CenterCatchment", crddom, true);
 
 	_outputTable->addColumn("Perimeter", IlwisObject::create<IDomain>("value"), true);
@@ -566,7 +567,7 @@ void MapCatchmentMerge::CreateTableSegmentsExtracted()
 	newSegTable->addColumn("UpstreamLinkID", IlwisObject::create<IDomain>("text"), true);
 	ICoordinateDomain crddom0;
 	crddom0.prepare();
-	crddom0->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom0->setCoordinateSystem(_csy);
 	newSegTable->addColumn("UpstreamCoord", crddom0, true);
 	
 	newSegTable->addColumn("UpstreamElevation", IlwisObject::create<IDomain>("value"), true);
@@ -574,7 +575,7 @@ void MapCatchmentMerge::CreateTableSegmentsExtracted()
 	
 	ICoordinateDomain crddom1;
 	crddom1.prepare();
-	crddom1->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom1->setCoordinateSystem(_csy);
 	newSegTable->addColumn("DownstreamCoord", crddom1, true);
 	
 	newSegTable->addColumn("DownstreamElevation", IlwisObject::create<IDomain>("value"), true);
@@ -622,7 +623,7 @@ void MapCatchmentMerge::CreateTableSegmentsExtracted()
 			if (IsExists)
 			{
 				iRecs++;
-				_outputExtractSegTable->setCell("Catchment", iRecs, QVariant(iCatchment));
+				_outputExtractSegTable->setCell("Catchment", iRecs, QVariant((int)iCatchment));
 				break;
 			}
 		}
@@ -865,12 +866,12 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 
 	ICoordinateDomain crddom1;
 	crddom1.prepare();
-	crddom1->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom1->setCoordinateSystem(_csy);
 	_outputTable->addColumn("CenterDrainage", crddom1, true);
 
 	ICoordinateDomain crddom2;
 	crddom2.prepare();
-	crddom2->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom2->setCoordinateSystem(_csy);
 	_outputTable->addColumn("OutletCoord", crddom2, true);
 
 
@@ -880,7 +881,7 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 
 	ICoordinateDomain crddom3;
 	crddom3.prepare();
-	crddom3->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom3->setCoordinateSystem(_csy);
 	_outputTable->addColumn("LFPUpstreamCoord", crddom3, true);
 
 	_outputTable->addColumn("LFPUpstreamElevation", IlwisObject::create<IDomain>("value"), true);
@@ -889,7 +890,7 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 
 	ICoordinateDomain crddom4;
 	crddom4.prepare();
-	crddom4->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom4->setCoordinateSystem(_csy);
 	_outputTable->addColumn("LDPUpstreamCoord", crddom4, true);
 
 	_outputTable->addColumn("LDPUpstreamElevation", IlwisObject::create<IDomain>("value"), true);
@@ -1205,12 +1206,12 @@ void MapCatchmentMerge::CreateTableLongestFlowPath(std::vector<AttLongestPath> v
 
 	ICoordinateDomain crddom1;
 	crddom1.prepare();
-	crddom1->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom1->setCoordinateSystem(_csy);
 	newPathTable->addColumn("UpstreamCoord", crddom1, true);
 
 	ICoordinateDomain crddom2;
 	crddom2.prepare();
-	crddom2->setCoordinateSystem(_inputgrf->coordinateSystem());
+	crddom2->setCoordinateSystem(_csy);
 	newPathTable->addColumn("DownstreamCoord", crddom2, true);
 	newPathTable->addColumn("Length", IlwisObject::create<IDomain>("value"), true);
 	newPathTable->addColumn("StraightLength", IlwisObject::create<IDomain>("value"), true);
