@@ -6,9 +6,9 @@ ILWISPy is a Geo-Processing Tool which can be used as a site-package under Pytho
 ILWISPy can be directly imported in Python, but can also be used within a Jupyter Notebook, offering the capability of markdown text with explanations and subsequent coding fields to execute certain operations, which for educational purposes offers nice opportunities.
 
 ## Installation
-While the most urgent deployment issues are being resolved, the extension is available at https://test.pypi.org/project/ilwis/, making it possible to perform the installation through `pip install`, as follows:
+The extension is available at https://pypi.org/project/ilwis/, making it possible to perform the installation through `pip install`, as follows:
 
-`python3 -m pip install -i https://test.pypi.org/simple/ ilwis`
+`python3 -m pip install ilwis`
 
 Add `--upgrade` to this statement, to update a previously installed version.
 
