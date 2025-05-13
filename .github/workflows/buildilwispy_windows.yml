@@ -117,3 +117,6 @@ jobs:
            move python_whl312/*.whl .
            move python_whl313/*.whl .
            c:/python36/python.exe -m twine upload --repository testpypi *.whl --verbose
+    - name: Setup tmate session
+      if: success() || failure()
+      uses: mxschmitt/action-tmate@v3
