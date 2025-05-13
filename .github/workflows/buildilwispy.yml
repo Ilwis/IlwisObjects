@@ -70,7 +70,10 @@ jobs:
            qmake -o Makefile.streamconnector streamconnector.pro
            qmake -o Makefile ilwisobjects.pro
     - name: make
-      run: make -f Makefile
+      run: |
+           . /github/home/.bashrc
+           conda activate custompython
+           make -f Makefile
     - name: publish
       env:
            TWINE_USERNAME: __token__
