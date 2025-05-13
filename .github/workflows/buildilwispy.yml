@@ -82,4 +82,4 @@ jobs:
            . /github/home/.bashrc
            conda activate custompython
            cd ../output/gccx64_/release/python_whl
-           python3 -m twine upload --repository testpypi *.whl --verbose
+           python3 -m twine upload *.whl --verbose
