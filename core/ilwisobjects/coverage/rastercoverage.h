@@ -224,7 +224,7 @@ public:
 
     UPGrid& gridRef();
     const UPGrid &grid() const;
-    void getData(quint32 blockIndex);
+    void getData(const IOOptions& options);
     void setPseudoUndef(PIXVALUETYPE v);
 
     bool canUse(const IlwisObject *obj, bool strict=false) const ;
@@ -237,6 +237,7 @@ public:
 	void storeAdjustment(const QString& property, const QString& value) override;
 	void setRepresentation(const QString& atr, const IRepresentation& rpr) override;
 	std::unordered_map<qint32, double> keyMapping(const QString& attribute) const;
+    void useCache(bool yesno);
 
 protected:
 

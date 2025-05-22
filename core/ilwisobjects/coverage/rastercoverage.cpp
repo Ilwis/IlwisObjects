@@ -677,7 +677,7 @@ bool RasterCoverage::band(QString bandIndex,  PixelIterator inputIter, MergeOpti
     int bndIndex = _bandDefinition.index(bandIndex);
     if ( bndIndex >= size().zsize()){
         _size.zsize(bndIndex + 1);
-        _grid->setBandProperties(this, size().zsize() - _grid->size().zsize());
+        //_grid->setBandProperties(this, size().zsize() - _grid->size().zsize());
          if ( _size.zsize() > _datadefBands.size())
             _datadefBands.resize(_size.zsize());
 
@@ -706,7 +706,7 @@ bool RasterCoverage::band(double bandIndex,  PixelIterator inputIter, MergeOptio
         bndIndex = zsize;
     if ( bndIndex >= zsize){
         _size.zsize(bndIndex == iUNDEF ? 1 : bndIndex + 1);
-        _grid->setBandProperties(this, 1);
+        //_grid->setBandProperties(this, 1);
     }
     return bandPrivate(isAnonAdd ? _size.zsize() - 1 : bndIndex, inputIter, mergeOption);
 }
@@ -827,10 +827,18 @@ bool RasterCoverage::bandPrivate(quint32 bandIndex,  PixelIterator inputIter,Mer
 }
 
 
-void RasterCoverage::getData(quint32 blockIndex)
+void RasterCoverage::getData(const IOOptions& options)
 {
     if ( !connector().isNull()){
-        connector()->loadData(this, {"blockindex", blockIndex});
+        if (!connector()->loadData(this,options)){
+           if ( options.contains("z")) {
+               auto z = options["z"].toUInt();
+               if ( options.contains("y")){
+                   auto y = options["y"].toUInt();
+                   _grid->setd3Size(z, y, size().xsize());
+               }
+           }
+        }
     }
 }
 
@@ -1166,6 +1174,9 @@ void RasterCoverage::setRepresentation(const QString& atr, const IRepresentation
 		auto& def = datadefRef();
 		def.representation(rpr);
 	}
+}
+void RasterCoverage::useCache(bool yesno){
+    _grid->useCache(yesno);
 }
 
 void RasterCoverage::copyBands(const IRasterCoverage &inRaster, const IRasterCoverage &outRaster, quint32 inputIndex, quint32 outputIndex, MergeOptions option) {
