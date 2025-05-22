@@ -60,7 +60,7 @@ public:
         bool res = true;
 		if (ctx->_threaded) {
 			cores = QThread::idealThreadCount();
-			int prefCount = outputRaster->grid()->blocks() / 2 + 1;
+            int prefCount = outputRaster->grid()->blocksCount() / 2 + 1;
 			if (prefCount < cores) {
 				cores = prefCount;
 			}

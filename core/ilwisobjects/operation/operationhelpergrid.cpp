@@ -210,8 +210,8 @@ void OperationHelperRaster::subdivideTasks(int cores, IRasterCoverage &raster, P
 		return;
     }
 
-	int nBlocks = raster->gridRef()->blocksPerBand();
-    int blockYSize = std::min(raster->gridRef()->maxLines(), (int)raster->size().ysize()-1);
+    int nBlocks = raster->gridRef()->blocksCount();
+    auto blockYSize = raster->gridRef()->blockCacheLimit();
 	double f = (double)nBlocks / cores;
     int coreBlocks = std::floor(f);
 	if (coreBlocks == 0)
