@@ -117,21 +117,6 @@ GridBlock::GridBlock(BlockIterator *iter) :
     // when calculating the linear postions only very basic operations are needed then
     if (! isValid())
         return ;
-    int ysize = iter->_raster->size().ysize();
-    _blockYSize = iter->_raster->_grid->maxLines();
-    _blockXSize = iter->_raster->_grid->size().xsize();
-    _XYSize = iter->_raster->_grid->size().xsize() * iter->_raster->_grid->size().ysize();
-    _internalBlockNumber.resize(ysize);
-    _offsets.resize(ysize);
-    qint32 base = 0;
-    for(int i=0; i < ysize; ++i ) {
-        if ( i % _blockYSize == 0)
-            base = 0;
-        _internalBlockNumber[i] =   i / _blockYSize;
-        _offsets[i] = base;
-        base += _blockXSize;
-    }
-    _bandOffset = iter->_raster->_grid->blocksPerBand();
 }
 
 double& GridBlock::operator ()(qint32 x, qint32 y, qint32 z)
@@ -144,8 +129,7 @@ double& GridBlock::operator ()(qint32 x, qint32 y, qint32 z)
 	}
 		
 
-    double &v =_iterator->_raster->_grid->value(_internalBlockNumber[y ] + _bandOffset * z, _offsets[y] + x);
-    return v;
+    double &v =_iterator->_raster->_grid->value(z ,y, x, 0);
 
 }
 
@@ -156,7 +140,7 @@ double GridBlock::value(int x, int y, int z) const {
 	if (!actualPosition(x, y, z))
 		return PIXVALUEUNDEF;
 
-	double v = _iterator->_raster->_grid->value(_internalBlockNumber[y] + _bandOffset * z, _offsets[y] + x);
+    double v = _iterator->_raster->_grid->value(z,y,x,0);
 	return v;
 }
 double GridBlock::operator ()(qint32 x, qint32 y, qint32 z) const

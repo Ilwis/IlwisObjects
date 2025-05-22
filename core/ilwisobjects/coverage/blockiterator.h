@@ -95,12 +95,6 @@ public:
 
 private:
     BlockIterator* _iterator;
-    std::vector<quint32> _internalBlockNumber;
-    std::vector<quint32> _offsets;
-    quint32 _blockYSize;
-    quint32 _blockXSize;
-    quint32 _bandOffset;
-    quint64 _XYSize;
     EdgeRule _edgeRule = erREPLICATE;
     double _defOutsideValue = 0;
     bool actualPosition(qint32 &x, qint32 &y, qint32 &z) const;
