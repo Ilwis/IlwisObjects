@@ -3,6 +3,7 @@ TEMPLATE = subdirs
 CONFIG += ordered
 
 SUBDIRS += \
+    commandlineclient.pro \
     core.pro \
     baseoperations.pro \
     featureoperations.pro \
@@ -12,7 +13,7 @@ SUBDIRS += \
     ilwis4connector.pro \
     ilwisscript.pro \
     internalconnector.pro \
-    netcdfconnector.pro \
+    #netcdfconnector.pro \
     projectionimplproj4.pro \
     rasteroperations.pro \
     streamconnector.pro \
