@@ -44,16 +44,22 @@ template<typename T> void storeBulk(const RawConverter& converter, QDataStream& 
     quint64 count = streamconnector->position();
     if ( streamconnector->isFileBased()){
         const UPGrid& grid = raster->grid();
-        quint32 blockCount = grid->blocks();
-        stream << blockCount;
-        std::vector<T> rawData(grid->blockSize(0));
-        for(quint32 i = 0; i < blockCount; ++i){
-            quint64 blockSize = grid->blockSize(i);
-            stream << i;
-            stream << blockSize;
-            for(int j = 0; j < blockSize; ++j)
-                rawData[j] = converter.real2raw(grid->value(i,j));
-            stream.writeRawData((const char *)rawData.data(), blockSize * sizeof(T));
+        std::vector<T> rawData(1000 * grid->size().xsize());
+        for(quint32 z =0; z < grid->size().zsize(); ++z){
+            quint32 yrel = 0;
+            quint32 pos = 0;
+            for(quint32 y =0; y < grid->size().ysize(); ++y){
+                for(quint32 x =0; x < grid->size().xsize(); ++x){
+                    pos = x + grid->size().xsize() * yrel;
+                    rawData[pos ] = converter.real2raw(grid->value(Pixel(x,y,z)));
+                }
+                if ( pos == rawData.size() - 1) {
+                    stream.writeRawData((const char *)rawData.data(), rawData.size() * sizeof(T));
+                    yrel = 0;
+                }else
+                    yrel = y;
+            }
+
         }
         streamconnector->flush(true);
     }else {
@@ -71,53 +77,23 @@ template<typename T> void storeBulk(const RawConverter& converter, QDataStream& 
     }
 }
 
-template<typename T> void loadBulk(std::vector<T>& rawdata, std::vector<PIXVALUETYPE>& realdata,const RawConverter& converter, QDataStream& stream, StreamConnector *streamconnector, const BoundingBox& box, const IRasterCoverage& raster){
+template<typename T> void loadBulk(std::vector<T>& rawdata, std::vector<PIXVALUETYPE>& realdata,const RawConverter& converter, QDataStream& stream, StreamConnector *streamconnector, const BoundingBox& box, IRasterCoverage& raster){
 
     if ( streamconnector->isFileBased()){
-        //const UPGrid& grid = raster->grid();
-        quint32 blockCount;
-        stream >> blockCount;
-        if ( !box.isNull() && box.isValid()){
-            //for the moment we only accept whole layers as possible subsets, might improve this in the future
-            int layer = box.min_corner().z ;
-            blockCount =  raster->grid()->blocksPerBand();
-            int extraOffsets = blockCount * layer * (sizeof(quint32) + sizeof(qint64)); // per block there is an index and a blocksize - 12 bytes;
-            int seekPos = stream.device()->pos() + extraOffsets + layer * (raster->size().xsize() * raster->size().ysize() * sizeof(T));
-            stream.device()->seek(seekPos);
-			qDebug() << layer << extraOffsets << seekPos;
 
-        }
-        quint32 blockIndex;
-        quint64 blockSize, initBlockSize;
-        stream >> blockIndex;
-        stream >> blockSize;
-        initBlockSize = blockSize;
-
-		if (initBlockSize != rawdata.size())
-			rawdata.resize(initBlockSize);
-		if ( initBlockSize != realdata.size())
-			realdata.resize(initBlockSize);
-
-        for(int i = 0; i < blockCount; ++i){
-
-            stream.readRawData((char *)&rawdata[0],blockSize * sizeof(T) );
-
-            if (realdata.size() != blockSize )
-                realdata.resize(blockSize);
-			for (int j = 0; j < blockSize; ++j) {
-			//	if (j == 2800) {
-			//		qDebug() << "stop;";
-			//	}
-				realdata[j] = converter.raw2real(rawdata[j]);
-			}
-            raster->gridRef()->setBlockData(i, realdata);
-            if ( i < blockCount - 1){
-                stream >> blockIndex;
-                stream >> blockSize;
+        UPGrid &grid = raster->gridRef();
+        std::vector<T> rawdata(1000 * grid->size().xsize());
+        int maxblocks = grid->blocksCount();
+        for ( int b=0; b < maxblocks; ++b){
+            int count = stream.readRawData((char *)&rawdata[0],rawdata.size() * sizeof(T) );
+            for(int p=0; p < count; ++p){
+                realdata[p] = converter.raw2real(rawdata[p]);
             }
-
         }
-    streamconnector->flush(true);
+
+
+
+        streamconnector->flush(true);
     } else {
      // TODO network restore, roughly code below though that was based on a older version
         //    UPGrid &grid = raster->gridRef();
