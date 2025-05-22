@@ -315,7 +315,7 @@ inline double RasterCoverageConnector::value(const char *block, int index) const
     return v;
 }
 
-qint64  RasterCoverageConnector::conversion(QFile& file, Grid *grid, int& count) {
+/*qint64  RasterCoverageConnector::conversion(QFile& file, Grid *grid, int& count) {
     qint64 blockSizeBytes = grid->blockSize(0) * _storesize;
     qint64 szLeft = grid->size().xsize() * grid->size().ysize() * _storesize;
     qint64 result = 0;
@@ -349,19 +349,22 @@ qint64  RasterCoverageConnector::conversion(QFile& file, Grid *grid, int& count)
     delete [] block;
 
     return totalRead;
-}
-void RasterCoverageConnector::loadBlock(UPGrid& grid,QFile& file, quint32 blockIndex, quint32 fileBlock) {
-    qint64 blockSizeBytes = grid->blockSize(0) * _storesize;
+}*/
+vector<double> RasterCoverageConnector::loadBlock(UPGrid& grid,std::unique_ptr<QFile> &file, int y, quint32 z) {
+    auto lines = grid->linesPerBlock(y);
+    //quint64 blockNr = int((y / grid->blockCacheLimit()));
+    auto blockSizeBytes = lines * grid->size().xsize() * _storesize;
+    qint64 seekPos = y * grid->size().xsize() * _storesize ;
 
-    quint64 seekPos = fileBlock * blockSizeBytes;
-    if (file.seek(seekPos)) {
-        QByteArray bytes = file.read(blockSizeBytes);
-        quint32 noItems = grid->blockSize(blockIndex);
+    if (file->seek(seekPos)) {
+        QByteArray bytes = file->read(blockSizeBytes);
+        quint32 noItems = lines * grid->size().xsize();
         if (noItems != iUNDEF) {
             vector<double> values(noItems);
             for (quint32 i = 0; i < noItems; ++i) {
                 double v = value(bytes.constData(), i);
                 if (_converter.isNeutral()) {
+
                     if (v != iILW3UNDEF && v != shILW3UNDEF)
                         values[i] = v;
                     else
@@ -370,11 +373,27 @@ void RasterCoverageConnector::loadBlock(UPGrid& grid,QFile& file, quint32 blockI
                 else
                     values[i] = _converter.raw2real(v);
             }
-            grid->setBlockData(blockIndex, values);
+            return values;
         } // else we are trying to read beyond the available data, perhaps because a new band was added; just return
     }else
-        ERROR2(ERR_COULD_NOT_OPEN_READING_2,file.fileName(),TR("seek failed"));
+        ERROR2(ERR_COULD_NOT_OPEN_READING_2,file->fileName(),TR("seek failed"));
+}
 
+bool RasterCoverageConnector::openDataFile(int z, std::unique_ptr<QFile>& file){
+
+    QString  datafile = _dataFiles[z].toLocalFile();
+    if ( datafile.right(1) != "#") { // can happen, # is a special token in urls
+        datafile += "#";
+    }
+    QFileInfo localfile(datafile);
+    file.reset(new QFile(localfile.absoluteFilePath()));
+    if ( !file->exists()){
+        return ERROR1(ERR_MISSING_DATA_FILE_1,datafile);
+    }
+    if (!file->open(QIODevice::ReadOnly )) {
+        return ERROR1(ERR_COULD_NOT_OPEN_READING_1,datafile);
+    }
+    return true;
 }
 
 bool RasterCoverageConnector::loadData(IlwisObject* data, const IOOptions &options)
@@ -385,32 +404,34 @@ bool RasterCoverageConnector::loadData(IlwisObject* data, const IOOptions &optio
     if ( _dataFiles.size() == 0) {
         return ERROR1(ERR_MISSING_DATA_FILE_1,_resource.name());
     }
+
     RasterCoverage *raster = static_cast<RasterCoverage *>(data);
 
     UPGrid& grid = raster->gridRef();
-    //blocklimits; key = band number, value= blocks needed from this band
-    std::map<quint32, std::vector<quint32> > blocklimits = grid->calcBlockLimits(iooptions);
+    if ( _openFiles.size() == 0){
+        _openFiles.resize(grid->size().zsize());
+        for(quint32 lz ; lz < _openFiles.size(); ++lz){
+            if (!openDataFile(lz, _openFiles[lz])){
+                return false;
+            }
+        }
+    }
 
-    for(const auto& layer : blocklimits){
-        QString  datafile = _dataFiles[layer.first].toLocalFile();
-        if ( datafile.right(1) != "#") { // can happen, # is a special token in urls
-            datafile += "#";
-        }
-        QFileInfo localfile(datafile);
-        QFile file(localfile.absoluteFilePath());
-        if ( !file.exists()){
-            return ERROR1(ERR_MISSING_DATA_FILE_1,datafile);
-        }
-        if (!file.open(QIODevice::ReadOnly )) {
-            return ERROR1(ERR_COULD_NOT_OPEN_READING_1,datafile);
-        }
+    quint32 z = options.contains("z") ? options["z"].toUInt(): 0;
+    quint32 y = options.contains("y") ? options["y"].toUInt(): 0;
+    QString orientation = options.contains("orientation") ? options["orientation"].toString(): "XYZ";
+    if (orientation == "ZXY"){
 
-        for(const auto& index : layer.second) {
-            quint32 fileBlock = index - layer.first * grid->blocksPerBand();
-            loadBlock(grid, file, index, fileBlock );
-        }
+        std::vector<double> block;
+        for(quint32 lz = 0; lz < _openFiles.size(); ++lz){
+               auto values = loadBlock(grid, _openFiles[lz], y , lz);
+               block.insert(block.end(), std::make_move_iterator(values.begin()), std::make_move_iterator(values.end()));
 
-        file.close();
+        }
+        grid->setBlockData(z, y, block);
+    }else {
+           auto values = loadBlock(grid, _openFiles[z], y , z);
+           grid->setBlockData(z, y, values);
     }
     if ( raster->attributeTable().isValid()) {
         ITable tbl = raster->attributeTable();

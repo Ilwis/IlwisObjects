@@ -39,7 +39,7 @@ public:
     void calcStatistics(const IlwisObject *obj,NumericStatistics::PropertySets set) const;
 
 private:
-    qint64 conversion(QFile& file,Ilwis::Grid *grid, int &count);
+    //qint64 conversion(QFile& file,Ilwis::Grid *grid, int &count);
     //qint64 noconversionneeded(QFile &file, Ilwis::Grid *grid, int &count);
     double value(const char *block, int index) const;
     void setStoreType(const QString &storeType);
@@ -47,7 +47,7 @@ private:
     bool storeMetaDataMapList(Ilwis::IlwisObject *obj);
     QString getGrfName(const IRasterCoverage &raster);
     bool setDataType(IlwisObject *data, const Ilwis::IOOptions &options);
-    void loadBlock(UPGrid &grid, QFile &file, quint32 blockIndex, quint32 fileBlock);
+    std::vector<double> loadBlock(UPGrid &grid, std::unique_ptr<QFile> &file, int y, quint32 z);
     void updateConverter(const IniFile & odf);
 
     template<typename T> bool save(std::ofstream& output_file,const RawConverter& conv, const IRasterCoverage& raster, const Size<>& sz) const{
@@ -80,8 +80,10 @@ private:
        });
         return true;
     }
+    bool openDataFile(int z, std::unique_ptr<QFile> &file);
 
     vector<QUrl> _dataFiles;
+    std::vector<std::unique_ptr<QFile>> _openFiles;
     int _storesize;
     IlwisTypes _storetype;
     IlwisTypes _dataType;

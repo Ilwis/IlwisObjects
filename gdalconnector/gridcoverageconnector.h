@@ -46,6 +46,10 @@ public:
 
     void createRasterDataDef(double vminRaster, double vmaxRaster, double resolution, RasterCoverage* raster);
 
+
+    
+    void getData(quint32 bandIndex, Ilwis::RasterCoverage *raster, quint32 y, char *block);
+
 private:
     GDALDataType _gdalValueType = GDT_Unknown;
     int _typeSize = iUNDEF;
@@ -54,7 +58,7 @@ private:
     bool _hasTransparency = false;   
     GdalOffsetScales _offsetScales;
 
-
+    double getNoDataValue(GDALRasterBandH layerHandle) const;
     double value(char *block, int index) const;
     bool setGeotransform(RasterCoverage *raster, GDALDatasetH dataset);
     void setColorValues(GDALColorInterp colorType, std::vector<double> &values, quint32 noItems, char *block) const;
@@ -137,8 +141,8 @@ private:
     bool loadDriver();
     DataDefinition createDataDef(double vmin, double vmax, double resolution, bool accurate, GdalOffsetScale gdalOffsetScale);
     DataDefinition createDataDefColor(std::map<int, int> &vminRaster, std::map<int, int> &vmaxRaster);
-    void loadNumericBlock(GDALRasterBandH bandhandle, quint32 index, quint32 gdalindex, quint32 linesPerBlock, quint64 linesLeft, char *block, Ilwis::RasterCoverage *raster, int bandIndex, double nodata) const;
-    void loadColorBlock(quint32 ilwisLayer, quint32 index, quint32 gdalindex, quint32 linesPerBlock, quint64 linesLeft, char *block, UPGrid &grid) const;
+    void loadNumericBlock(quint32 yNormalized, quint32 linesPerBlock, char *block, Ilwis::RasterCoverage *raster, int bandIndex) const;
+    void loadColorBlock(quint32 bandindex, quint32 yNormalized, quint32 linesPerBlock, char *block, Ilwis::RasterCoverage *raster) const;
     bool handleNumericCase(const Size<> &rastersize, RasterCoverage *raster);
     bool handleColorCase(const Size<> &rastersize, RasterCoverage *raster, GDALColorInterp colorType);
     bool handlePaletteCase(Size<> &rastersize, RasterCoverage *raster);
@@ -146,6 +150,8 @@ private:
     bool moveIndexes(quint32 &linesPerBlock, quint64 &linesLeft, int &gdalindex);
     bool storeColorRaster(RasterCoverage *raster, GDALDatasetH dataset);
     bool handleNumericLayerCase(int layer, RasterCoverage *raster);
+    void loadRasterData();
+    quint32 noOfItems(const UPGrid& grid);
 };
 }
 }
