@@ -93,7 +93,7 @@ public:
      * The possible flows, not all are implemented (yet).<br>
      * atm only xyz works
      */
-    enum Flow { fXYZ, fYXZ, fXZY, fYZX, fZXY, fZYX};
+    enum Flow { fXYZ, fZXY};
 
     /*!
      * \brief isValid tells if an iterator is in a valid state.
@@ -117,7 +117,7 @@ public:
 
     }
 
-    /*!
+    /*!::value
      * \brief Constructs a PixelIterator from a raster and a bounding box
      *
      * Constructs a PixelIterator from the raster and the bounding box<br>
@@ -144,6 +144,7 @@ public:
      * \param iter PixelIterator that must be copied
      */
     PixelIterator(PixelIterator &&iter);
+    ~PixelIterator();
 
     /*!
      * override of the operator=<br>
@@ -352,7 +353,7 @@ public:
      * \return reference to the currentvalue
      */
     PIXVALUETYPE& operator*() {
-        return _grid->value(_currentBlock, _localOffset, _threadIndex);
+        return _grid->value(_z, _y, _x, _threadIndex);
     }
 
     /*!
@@ -360,7 +361,7 @@ public:
      * \return reference to the currentvalue
      */
     const PIXVALUETYPE& operator*() const {
-        return  _grid->value(_currentBlock, _localOffset, _threadIndex);
+        return  _grid->value(_z, _y, _x, _threadIndex);
     }
 
     /*!
@@ -368,7 +369,7 @@ public:
      * \return ->value(this(current))
      */
     PIXVALUETYPE* operator->() {
-        return &(_grid->value(_currentBlock, _localOffset, _threadIndex));
+        return &(_grid->value(_z, _y, _x, _threadIndex));
     }
 
     /*!
@@ -441,6 +442,7 @@ public:
      * \return a Pixel with the current non lineair position of this PixelIterator
      */
     Pixel position() const;
+    Pixel position(const Pixel& pos) ;
 
     /*!
      * \brief Query for the bounding box of this PixelIterator
@@ -497,8 +499,6 @@ protected:
         _x(0),
         _y(0),
         _z(0),
-        _localOffset(0),
-        _currentBlock(0),
         _flow(fXYZ),
         _isValid(true),
         _endx(0),
@@ -514,8 +514,6 @@ protected:
 
     void init();
     void initPosition();
-    //bool move(int n);
-    //bool moveXYZ(int delta) ;
     void copy(const PixelIterator& iter);
 
     IRasterCoverage _raster;
@@ -524,8 +522,6 @@ protected:
     qint64 _x = 0;
     qint64 _y = 0;
     qint64 _z = 0;
-    qint64 _localOffset = 0;
-    qint64 _currentBlock = 0;
     Flow _flow;
     bool _isValid;
     qint64 _endx;
@@ -560,10 +556,7 @@ protected:
         }
         else if ( _flow == fZXY){
             ok = moveZXY(n);
-        } else if ( _flow == fYXZ) {
-            ok = moveYXZ(n);
         }
-
         return ok;
     }
 
@@ -576,7 +569,6 @@ private:
         _linearposition += delta * _box.xlength() * _box.ylength();
         _zChanged = true;
         _xChanged = _yChanged = false;
-        _currentBlock  = _z * _grid->blocksPerBand() + _y / _grid->maxLines();
         if (_selectionIndex < 0){
             if ( _z > _endz || _z < _box.min_corner().z){
                 return moveXY(delta);
@@ -588,15 +580,11 @@ private:
     bool moveYXZ(qint64 delta){
         _y += delta;
         _linearposition += delta * _box.xlength();
-        _localOffset += delta * _box.xlength();
         _yChanged = true;
         _xChanged = _zChanged = false;
         if (_selectionIndex < 0){
             if ( _y > _endy || _y < _box.min_corner().y){
                 return moveXZ(delta);
-            }
-            if ( _localOffset >= _grid->blockSize(_currentBlock)){
-                return move2NextBlock();
             }
         }
         return true;
@@ -605,7 +593,6 @@ private:
     bool moveXYZ(qint64 delta) {
         _x += delta;
         _linearposition += delta;
-        _localOffset += delta;
         _xChanged = true;
         _yChanged = _zChanged = false;
         if ( _selectionIndex < 0){
@@ -639,7 +626,6 @@ private:
     bool moveXZ(qint64 delta);
     bool move2NextSelection(qint64 delta);
     void cleanUp4PolyBoundaries(const std::vector<Ilwis::Pixel> &selectionPix, geos::geom::Geometry *selection);
-    bool move2NextBlock();
 };
 
 inline Ilwis::PixelIterator begin(const Ilwis::IRasterCoverage& raster) {
