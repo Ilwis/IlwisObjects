@@ -106,20 +106,7 @@ bool MapCalc::execute(ExecutionContext *ctx, SymbolTable& symTable)
      ctx->_threaded = false;
 	 OperationHelperRaster::execute(ctx, calcFun, allRasters);
 
-	if (_outputRaster->datadef().domain()->ilwisType() == itNUMERICDOMAIN) {
-		PIXVALUETYPE rmin = PIXVALUEUNDEF, rmax = PIXVALUEUNDEF;
-		bool isInt = true;
-		for (PIXVALUETYPE v : _outputRaster) {
-			rmin = Ilwis::min(rmin, v);
-			rmax = Ilwis::max(rmax, v);
-			if (v != PIXVALUEUNDEF) {
-				isInt &= std::abs((qint64)v - v) < EPS8;
-			}
-		}
-		NumericRange *range = new NumericRange(rmin, rmax, isInt ? 1 : 0);
-		_outputRaster->datadefRef().range(range);
-	}
-	else {
+    if (_outputRaster->datadef().domain()->ilwisType() != itNUMERICDOMAIN) { // has attribute table
 		IFlatTable tbl;
 		tbl.prepare();
 		tbl->addColumn(_outputRaster->primaryKey(), _outputRaster->datadef().domain());
@@ -133,9 +120,6 @@ bool MapCalc::execute(ExecutionContext *ctx, SymbolTable& symTable)
 		_outputRaster->setAttributes(tbl);
 
 	}
-
-
-	 
 
     QVariant value;
     value.setValue<IRasterCoverage>(_outputRaster);
@@ -219,6 +203,7 @@ OperationImplementation::State MapCalc::prepare(ExecutionContext *ctx,const Symb
             if(!raster.prepare(url)){
                 return sPREPAREFAILED;
             }
+            raster->useCache(false);
             if ( stackdef.isValid()){
                 if(!stackdef.checkStackDefintion(raster->stackDefinition())){
                     kernel()->issues()->log(TR("Incompatible stack definition for ") +raster->name() ) ;
@@ -518,7 +503,7 @@ MapCalc6::MapCalc6(quint64 metaid,const Ilwis::OperationExpression &expr) : MapC
 //    operation.parameterNeedsQuotes(0);
 //    operation.addInParameter(1,itRASTER | itNUMBER, TR("raster or number"), TR("Rasters with numerical domain"));
 //    operation.addInParameter(2,itRASTER | itNUMBER, TR("raster or number"), TR("Rasters with numerical domain"));
-//    operation.addInParameter(3,itRASTER | itNUMBER, TR("raster or number"), TR("Rasters with numerical domain"));
+//    operation.addInParameter(3,itRASTER | itNUMBER, TR("raster or number"), TRblocksCount("Rasters with numerical domain"));
 //    operation.addInParameter(4,itRASTER | itNUMBER, TR("raster or number"), TR("Rasters with numerical domain"));
 //    operation.addInParameter(5,itRASTER | itNUMBER, TR("raster or number"), TR("Rasters with numerical domain"));
 //    operation.addInParameter(6,itRASTER | itNUMBER, TR("raster or number"), TR("Rasters with numerical domain"));
