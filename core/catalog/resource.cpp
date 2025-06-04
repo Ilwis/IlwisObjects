@@ -768,11 +768,8 @@ QString Resource::toLocalFile(const QUrl& url, bool relative, const QString& ext
         localPath = localFile.absoluteFilePath();
     }
     if ( ext != sUNDEF){ // if desired we can change the extension
-        int index;
-
-        if ( (index = localPath.lastIndexOf(".")) != -1)
-            localPath = localPath.left(index);
-        localPath += "." + ext;
+        if ( localFile.completeSuffix() != ext)
+            localPath = localPath + "." + ext;
     }
     QFileInfo inf(OSHelper::neutralizeFileName(localPath));
     if ( relative)
