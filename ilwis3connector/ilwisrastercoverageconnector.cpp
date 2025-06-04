@@ -410,7 +410,7 @@ bool RasterCoverageConnector::loadData(IlwisObject* data, const IOOptions &optio
     UPGrid& grid = raster->gridRef();
     if ( _openFiles.size() == 0){
         _openFiles.resize(grid->size().zsize());
-        for(quint32 lz ; lz < _openFiles.size(); ++lz){
+        for(quint32 lz=0 ; lz < _openFiles.size(); ++lz){
             if (!openDataFile(lz, _openFiles[lz])){
                 return false;
             }
