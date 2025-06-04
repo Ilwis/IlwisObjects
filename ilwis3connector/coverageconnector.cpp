@@ -350,6 +350,14 @@ bool CoverageConnector::storeMetaData(IlwisObject *obj, IlwisTypes type, const I
     if ( dom->ilwisType() == itITEMDOMAIN) {
         if (hasType(dom->valueType(), itTHEMATICITEM | itNUMERICITEM)) {
             _domainName = Resource::toLocalFile(dom->resource().url(true), true, "dom");
+            if ( _domainName.indexOf(ANONYMOUS_PREFIX) != -1){ // we dont want anon domain names
+                auto baseName = coverage->resource().name();
+                int index = 0;
+                if ( (index = baseName.indexOf(".")) != -1){
+                    baseName = baseName.left(index)  ;
+                }
+                _domainName = baseName + ".dom";
+            }
             if (_domainName == sUNDEF) {
                 if (baseName != sUNDEF)
                     _domainName = QFileInfo(baseName).baseName() + ".dom";
