@@ -66,8 +66,8 @@ public:
     quint64 blockSize(int d) const;
     void setd3Size(int d1, int d2, int d3sz);
 
-	void prepare4Operation(int nThreads);
-	void unprepare4Operation();
+    void prepare4Operation(int nThreads);
+    void unprepare4Operation();
     quint32 blockCacheLimit() const;
     void useCache(bool yesno);
 
@@ -87,18 +87,16 @@ private:
     //void getBlockData(int d1, int d2, std::vector<PIXVALUETYPE>& data);
     void updateBlockCache(int d1, quint64 blockNr, int threadIndex);
     PIXVALUETYPE& value(int d1, int d2, int d3, int threadIndex = 0); //d1=z,d2=y,d3=x (XYZ) or d1=y, d2=x, d3=z (ZXY)
-    void loadBlockXYZ(int z, int y, int x, int threadIndex);
-    void loadBlockZXY(int z, int y, int x, int threadIndex);
     void setBlockDataZXY(int z, int y, const std::vector<PIXVALUETYPE>& data);
     void setBlockDataXYZ(int z, int y, const std::vector<PIXVALUETYPE>& data);
     const BlockStatus& blockStatus(int z, int y) const;
-    void dumpZXY(int z, int blockNr, int threadIndex);
-    void dumpXYZ(int z, int blockNr, int threadIndex);
     quint64 seekPosition(int z, int y, int x) const;
     quint32 normY(int y) const;
     void loadFromSource(int z, int x, int y)    ;
     bool pastHorizon(quint32 v) const ;
     void closure();
+    void dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) ;
+    void load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex);
 
    const unsigned int BLOCKYHORIZON = 4;
     const unsigned int BLOCKXHORIZON = 8;
@@ -114,6 +112,8 @@ private:
     const quint32 ZXYYBLOCKS = 8;
     bool _useCache = true;
 
+    void loadFromCache(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex);
+    void setStripeStatus(unsigned int z1, quint64 blockNr, bool status);
 };
 
 typedef std::unique_ptr<Grid> UPGrid;
