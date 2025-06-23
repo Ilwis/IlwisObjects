@@ -28,9 +28,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include <QThread>
 using namespace Ilwis;
 
-ProcessingBoundingBoxes::ProcessingBoundingBoxes(const IRasterCoverage& raster){
-    _maxThreads = 1;
-    _boxes[raster->id()].push_back(BoundingBox(raster->size()));
+ProcessingBoundingBoxes::ProcessingBoundingBoxes(const std::vector<IRasterCoverage>& rasters, int maxThreads){
+    _maxThreads = maxThreads;
+    for(auto &raster : rasters )
+        _boxes[raster->id()].push_back(BoundingBox(raster->size()));
 }
 void ProcessingBoundingBoxes::sizeBoxesVector(int maxThreads){
     _maxThreads = maxThreads;
@@ -46,10 +47,13 @@ void ProcessingBoundingBoxes::addBoxes(const IIlwisObject &obj, const std::vecto
 }
 
 void ProcessingBoundingBoxes::addBox(const IIlwisObject &obj, int threadIndex, const BoundingBox& box){
-    if ( _boxes[obj->id()].size() == 0)
-        _boxes[obj->id()].resize(_maxThreads);
-    if ( threadIndex < _maxThreads)
+    if ( _boxes[obj->id()].size() < threadIndex + 1)
+        _boxes[obj->id()].resize(_maxThreads + 1);
+    if ( threadIndex <= _maxThreads){
+        auto pp = _boxes[obj->id()];
+        pp[threadIndex] = box;
         _boxes[obj->id()][threadIndex] = box;
+    }
 }
 BoundingBox ProcessingBoundingBoxes::box(const IIlwisObject &obj, int threadIndex) const{
     if ( threadIndex >= _maxThreads)
@@ -221,11 +225,12 @@ void OperationHelperRaster::subdivideTasks(int cores, IRasterCoverage &raster, P
 
 	int lastY = 0;
 	for (int i = 0; i < cores - 1; ++i) {
-		boxes[i] = BoundingBox( Pixel( 0, lastY ), Pixel( raster->size().xsize()-1, lastY + blockYSize * coreBlocks -1 ) );
+        auto box = BoundingBox( Pixel( 0, lastY ), Pixel( raster->size().xsize()-1, lastY + blockYSize * coreBlocks -1 ) );
+        pboxes.addBox(raster, i+1, box);
 		lastY += blockYSize * coreBlocks;
 	}
-	boxes[cores - 1] = BoundingBox(Pixel(0, lastY ), Pixel( raster->size().xsize()-1, raster->size().ysize() - 1 ) );
-    pboxes.addBoxes(raster, boxes);
+    auto box = BoundingBox(Pixel(0, lastY ), Pixel( raster->size().xsize()-1, raster->size().ysize() - 1 ) );
+    pboxes.addBox(raster, cores, box);
 
 }
 
