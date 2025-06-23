@@ -113,7 +113,8 @@ private:
     bool _useCache = true;
 
     void loadFromCache(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex);
-    void setStripeStatus(unsigned int z1, quint64 blockNr, bool status);
+    void setBlockStatus(unsigned int z1, quint64 blockNr, bool status);
+    quint64 calcSeekPosition(unsigned int z, unsigned int y ) const;
 };
 
 typedef std::unique_ptr<Grid> UPGrid;

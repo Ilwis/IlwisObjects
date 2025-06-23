@@ -22,6 +22,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 
 using namespace Ilwis;
 
+/*
+ * The planes member, a 3D nested set of vectors, contains the 'real' data. It is structured differently for the XYZ flow and the ZXY flow
+ * the XYZ flow is structured planes[zsize][ysize][xsize], the ZXY flow planes[ysize][zsize][xsize]. The amount of data actually loaded in
+ * these vectors is limited. For XYZ a block like planes[ZIndex][YLower ... YUpper][0..XMAX]. The moment y passes YUpper,
+ * planes[ZIndex][YLower ... YUpper][0..XMAX] will be written as block to the cache file and the memory occuppied by that block is freed.
+ * Whenever it is needed it can be very quickly reloaded as it is a simple dump of memory
+ */
 //----------------------------------------------------------------------
 
 Grid::Grid(Orientation ori) : _orientation(ori), _rasterid(i64UNDEF)  {
@@ -80,15 +87,18 @@ void Grid::clear() {
 
 }
 
-
+quint64 Grid::calcSeekPosition(unsigned int z, unsigned int y ) const{
+   quint64 pos = (z * _size.xsize() * _size.ysize() + y * _size.xsize()) * sizeof(PIXVALUETYPE);
+   return pos;
+}
 
 void Grid::dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) {
-    quint64 seekposition = (z1 * _size.xsize() * _size.ysize() + y1 * _size.xsize()) * sizeof(PIXVALUETYPE);
     quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
     char data[dataSize];
-    _diskImages[threadIndex]->seek(seekposition);
-    for (unsigned int z = z1; z < std::min(_size.xsize(), z2); ++z){
-        for(unsigned int y = y1; y < std::min(_size.ysize(),y2); ++y){
+    for (unsigned int z = z1; z <= std::min(_size.xsize()-1, z2); ++z){
+        for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
+            quint64 seekposition = calcSeekPosition(z,y);
+            _diskImages[threadIndex]->seek(seekposition);
             if ( _orientation == Grid::oXYZ){
                 memcpy(&data[0], _planes[z][y].data(), _size.xsize() * sizeof(PIXVALUETYPE));
                 _planes[z][y] = std::vector<double>();
@@ -97,24 +107,24 @@ void Grid::dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int 
                  _planes[y][z] = std::vector<double>();
             }
             _diskImages[threadIndex]->write(data, _size.xsize()*sizeof(double));
-            seekposition += _size.xsize() * sizeof(double);
-            _diskImages[threadIndex]->seek(seekposition);
+
+
         }
     }
     quint64 blockNr = int((y1 / blockCacheLimit()));
-    setStripeStatus(z1, blockNr, false);
+    setBlockStatus(z1, blockNr, false);
 }
 
 void Ilwis::Grid::loadFromCache(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex)
 {
     quint64 blockNr = int((y1 / blockCacheLimit()));
 
-    quint64 seekposition = (z1 * _size.xsize() * _size.ysize() + y1 * _size.xsize()) * sizeof(PIXVALUETYPE);
     quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
     char data[dataSize];
-    _diskImages[threadIndex]->seek(seekposition);
-    for (unsigned int z = z1; z < std::min(_size.zsize(),z2); ++z){
-        for(unsigned int y = y1; y < std::min(_size.ysize(),y2); ++y){
+    for (unsigned int z = z1; z <= std::min(_size.zsize()-1,z2); ++z){
+        for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
+            quint64 seekposition = calcSeekPosition(z, y);
+            _diskImages[threadIndex]->seek(seekposition);
             _diskImages[threadIndex]->read(data, dataSize);
             if ( _orientation == Grid::oXYZ){
                 if (_planes[z][y].size() != _size.xsize())
@@ -127,14 +137,13 @@ void Ilwis::Grid::loadFromCache(unsigned int y1, unsigned int y2, unsigned int z
                     _planes[y][z] = std::vector<double>(_size.xsize());
                 std::memcpy(_planes[y][z].data(), &data[0], _size.xsize() * sizeof(double));
             }
-            seekposition += _size.xsize() * sizeof(double);
-            _diskImages[threadIndex]->seek(seekposition);
+
         }
     }
-    setStripeStatus(z1, blockNr, true);
+    setBlockStatus(z1, blockNr, true);
 }
 
-void Ilwis::Grid::setStripeStatus( unsigned int z1, quint64 blockNr, bool status)
+void Ilwis::Grid::setBlockStatus( unsigned int z1, quint64 blockNr, bool status)
 {
     if ( _orientation == oXYZ)
         _validStripe[z1][blockNr]._valid = status;
@@ -152,7 +161,7 @@ void Grid::load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int 
                 loadFromSource(z1,x,y1);
             }
     }else {
-       setStripeStatus(z1, blockNr, true);
+       setBlockStatus(z1, blockNr, true);
     }
 
     if ( pastHorizon(y1)){
@@ -169,13 +178,14 @@ void Ilwis::Grid::dumpBlock(int z, int y, int x, int threadIndex)
         createCacheFile(threadIndex);
     }
     quint32 blockNr = int(y/blockCacheLimit()) - 1;
-    auto yb = blockNr  * blockCacheLimit();
-    auto yl = ( blockNr + 1) * blockCacheLimit();
-    if ( _orientation == Grid::oXYZ){
-        dump(yb , yl, z, z + 1,threadIndex);
-    }else{
-        dump(yb , yl, 0, _size.zsize(), threadIndex);
-    }
+        auto yb = blockNr  * blockCacheLimit();
+        auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
+        if ( _orientation == Grid::oXYZ && blockStatus(z, blockNr)._valid){
+            dump(yb , yl, z, z,threadIndex);
+        }else if ( blockStatus(0, blockNr)._valid){
+            dump(yb , yl, 0, _size.zsize()-1, threadIndex);
+        }
+
 }
 
 void Grid::loadFromSource(int z1, int x, int y1){
@@ -203,19 +213,19 @@ PIXVALUETYPE& Grid::value(const Pixel &pix, int threadIndex) {
 PIXVALUETYPE &Grid::value(int z, int y, int x, int threadIndex)  {
      quint64 blockNr = int((y / blockCacheLimit()));
      auto yb = blockNr  * blockCacheLimit();
-     auto yl = ( blockNr + 1) * blockCacheLimit();
+     auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
      switch(_orientation){
      case oZXY:{
 
              if (!_validStripe[blockNr][0]._valid){
-                 load(yb, yl, 0, _size.zsize(), x, threadIndex);
+                 load(yb, yl, 0, _size.zsize()-1, x, threadIndex);
              }
              return _planes[y][z][x];
         }
     default:{
 
          if (!_validStripe[z][blockNr]._valid)
-             load(yb,yl, z, z + 1, x, threadIndex);
+             load(yb,yl, z, z, x, threadIndex);
          return _planes[z][y][x];
          }
      }
@@ -280,13 +290,13 @@ void Grid::setValue(int z, int y, int x, PIXVALUETYPE v, int threadIndex ){
     switch(_orientation){
     case oZXY:{
         if (!_validStripe[y][blockNr]._valid)
-             load(y, y + blockNr * blockCacheLimit(), z, _size.zsize(), x, threadIndex);
+             load(y, y + blockNr * blockCacheLimit(), z, _size.zsize()-1, x, threadIndex);
          _planes[z][x][y] = v;
         }
         break;
     default:{
             if (!_validStripe[y][blockNr]._valid)
-                load(y, y + blockNr * blockCacheLimit(), 0, z + 1, x, threadIndex);
+                load(y, y + blockNr * blockCacheLimit(), 0, z, x, threadIndex);
              _planes[z][x][y] = v;
         }
         break;
@@ -480,7 +490,7 @@ quint32 Grid::normY(int y) const{
 }
 
 bool Grid::pastHorizon(quint32 v) const {
-    return v % blockCacheLimit() == 0 && v != 0;
+    return (v + 1) % blockCacheLimit() == 0 && v != 0;
 }
 
 void Grid::closure()
