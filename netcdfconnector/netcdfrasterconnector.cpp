@@ -188,14 +188,13 @@ bool NetCdfRasterConnector::loadData(IlwisObject* obj, const IOOptions& options)
         RasterCoverage *raster = static_cast<RasterCoverage *>(obj);
         UPGrid& grid = raster->gridRef();
 
+        quint32 y = options.contains("y") ? options["y"].toUInt(): 0;
+        quint32 z = options.contains("z") ? options["y"].toUInt(): 0;
         int bIndex = options["blockindex"].toInt();
-//        int bsize = grid->blockSize(options["blockindex"].toInt());
-        int bpBand = grid->blocksPerBand();
-        int z = bIndex / bpBand;
         Size<> sz = raster->size();
 
 
-        std::map<quint32, std::vector<quint32> > blocklimits = raster->grid()->calcBlockLimits(options);
+        //std::map<quint32, std::vector<quint32> > blocklimits = raster->grid()->calcBlockLimits(options);
 
         int n = var.getDimCount();
         std::vector< netCDF::NcDim > dims = var.getDims();
@@ -228,7 +227,7 @@ bool NetCdfRasterConnector::loadData(IlwisObject* obj, const IOOptions& options)
         std::vector<double> values(maxX * maxY, rUNDEF);
         bool xy = axisLocations[0] < axisLocations[1];
         getValue(index,count,maxX,maxY,xy,var,values);
-        grid->setBlockData(bIndex, values);
+        grid->setBlockData(bIndex, y, values);
 
     }
 

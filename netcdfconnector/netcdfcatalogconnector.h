@@ -32,8 +32,8 @@ namespace Ilwis {
     namespace NetCdf {
 
         class NetCdfCatalogExplorer : public CatalogExplorer
-
         {
+        enum AxisType{atX, atY, atZ, atUNKNOWN};
         friend class NetCdfRasterConnector;
 
         public:
@@ -70,6 +70,7 @@ namespace Ilwis {
             static Ilwis::IGeoReference getGrfs(const QString &path, const Size<> sz, const ICoordinateSystem &csy, std::vector<Ilwis::IGeoReference> &grfs) ;
             static void setRasterGeometryinResource(const Ilwis::ICoordinateSystem &csy, const Ilwis::IGeoReference &grf, const Size<> &sz, Ilwis::Resource &res) ;
             static QString getProjection(const std::string &gridMapName) ;
+            static NetCdfCatalogExplorer::AxisType getAxisType(const std::multimap< std::string, netCDF::NcVar >::const_iterator &iterAxis);
         };
     }
 }

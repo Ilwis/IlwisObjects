@@ -238,6 +238,9 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
 
     std::map<std::string,netCDF::NcVarAtt> atts = var.second.getAtts();
     std::map<std::string,netCDF::NcVarAtt>::const_iterator iterAtts = atts.find("grid_mapping");
+    auto atts2 = vars.find("projection");
+    std::map<std::string,netCDF::NcVarAtt> atts3 = atts2->second.getAtts();
+    std::map<std::string,netCDF::NcVarAtt>::const_iterator iterAtts3 = atts3.find("long_name");
     std::map<QString, QVariant> gridMapping;
     ICoordinateSystem csy;
     //if no grid mapping van be found we assume it's epsg:4326; unless we find an alternative system
@@ -315,7 +318,7 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
                     gridMapping["y_0"] = fn;
                 }
                 if (iterGridAtt.first == "crs_wkt"){
-                    std::string wkt;
+                    std::string wkt;auto iterAtts2 = vars.find("projection");
                     iterGridAtt.second.getValues(wkt);
                     csy = CoordinateSystem::fromWKT(QString::fromStdString(wkt));
                 }
@@ -323,6 +326,7 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
         }else
             gridMapping["epsg"] = "epsg:4326";
     }else{
+
        gridMapping["epsg"] = "epsg:4326";
     }
     if ( !csy.isValid()) { // we could have a wkt convention which already properly fills out all things in case we have a csy; if not we construct
@@ -357,11 +361,8 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
         auto axisName = dim.getName();
         std::multimap< std::string, netCDF::NcVar >::const_iterator iterAxis= vars.find(axisName);
         try {
-            netCDF::NcVarAtt axisType =  iterAxis->second.getAtt("axis");
-            std::string axisTypeS;
-
-            axisType.getValues(axisTypeS);
-            if ( axisTypeS == "X"){
+            auto axisType = getAxisType(iterAxis);
+            if ( axisType == atX){
                 std::vector< netCDF::NcDim > axisBnds = iterAxis->second.getDims();
                 int axisSize = axisBnds[0].getSize();
                 std::vector<double> data(axisSize);
@@ -369,7 +370,7 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
                 env.min_corner().x = data[0];
                 env.max_corner().x = data.back();
             }
-            if ( axisTypeS == "Y"){
+            if ( axisType == atY){
                 std::vector< netCDF::NcDim > axisBnds = iterAxis->second.getDims();
                 int axisSize = axisBnds[0].getSize();
                 std::vector<double> data(axisSize);
@@ -378,6 +379,7 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
                 env.max_corner().y = data.back();
             }
         }catch(netCDF::exceptions::NcException& e){
+            qDebug() << "blop";
             // not necessarily an error; just it has no axis attribute and is probably a Z which is not relevant in this case
         }
 
@@ -390,6 +392,41 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
     return ICoordinateSystem();
 }
 
+NetCdfCatalogExplorer::AxisType NetCdfCatalogExplorer::getAxisType(const std::multimap< std::string, netCDF::NcVar >::const_iterator &iterAxis){
+    try {
+        netCDF::NcVarAtt axisType =  iterAxis->second.getAtt("axis");
+        std::string axisTypeS;
+        axisType.getValues(axisTypeS);
+        if ( axisTypeS == "X")
+            return atX;
+        if ( axisTypeS == "Y")
+            return atY;
+        if ( axisTypeS == "Z" || axisTypeS == "T")
+            return atZ;
+    }catch(netCDF::exceptions::NcException& e){
+        auto name = iterAxis->first;
+        if ( name == "x")
+            return atX;
+        if ( name == "y")
+            return atY;
+        if ( name == "z" || name == "t")
+            return atZ;
+
+        try{
+            netCDF::NcVarAtt att = iterAxis->second.getAtt("standard_name");
+            if ( name == "projection_x_coordinate")
+                return atX;
+            if ( name == "projection_y_coordinate")
+                return atY;
+            if ( name == "z" || name == "t")
+                return atZ;
+        } catch(netCDF::exceptions::NcException& e){
+            return atUNKNOWN;
+        }
+    }
+    return atUNKNOWN;
+
+}
 IGeoReference NetCdfCatalogExplorer::getGrfs(const QString& path, const Size<> sz, const ICoordinateSystem& csy, std::vector<IGeoReference>& grfs) {
     // we maintain a list of grfs to forestall making duplicate grfs that re identical to earlier made grfs
     for(auto grf : grfs)         {
