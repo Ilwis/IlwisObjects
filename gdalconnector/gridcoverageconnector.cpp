@@ -49,6 +49,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "projection.h"
 #include "proj4parameters.h"
 #include "conventionalcoordinatesystem.h"
+#include "locker.h"
 
 using namespace Ilwis;
 using namespace Gdal;
@@ -515,6 +516,7 @@ quint32 RasterCoverageConnector::noOfItems(const UPGrid& grid) {
 }
 
 bool RasterCoverageConnector::loadData(IlwisObject* data, const IOOptions& options ){
+    Locker<> lock(_mutex);
 	if (!getHandle(data)) {
 		return false;
 	}

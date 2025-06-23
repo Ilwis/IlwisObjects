@@ -16,6 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 
 #ifndef GRIDCOVERAGECONNECTOR_H
 #define GRIDCOVERAGECONNECTOR_H
+#include <mutex>
 
 namespace Ilwis{
 namespace Gdal{
@@ -57,6 +58,7 @@ private:
     ColorRangeBase::ColorModel _colorModel = ColorRangeBase::cmNONE;
     bool _hasTransparency = false;   
     GdalOffsetScales _offsetScales;
+    std::recursive_mutex _mutex;
 
     double getNoDataValue(GDALRasterBandH layerHandle) const;
     double value(char *block, int index) const;
