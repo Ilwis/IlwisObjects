@@ -186,7 +186,7 @@ public:
      */
 	PIXVALUETYPE pix2value(const Pixeld& pix){
         if ( _georef->isValid() && !connector().isNull()) {
-			PIXVALUETYPE v = _grid->value(pix);
+			PIXVALUETYPE v = _grid->valueRef(pix);
             return v;
         }
         return rUNDEF;

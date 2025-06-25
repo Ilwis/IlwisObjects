@@ -94,7 +94,7 @@ quint64 Grid::calcSeekPosition(unsigned int z, unsigned int y ) const{
 
 void Grid::dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) {
     quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
-    char data[dataSize];
+    std::vector<char> data(dataSize);
     for (unsigned int z = z1; z <= std::min(_size.xsize()-1, z2); ++z){
         for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
             quint64 seekposition = calcSeekPosition(z,y);
@@ -106,9 +106,7 @@ void Grid::dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int 
                 memcpy(&data[0], _planes[y][z].data(), _size.xsize() * sizeof(PIXVALUETYPE));
                  _planes[y][z] = std::vector<double>();
             }
-            _diskImages[threadIndex]->write(data, _size.xsize()*sizeof(double));
-
-
+            _diskImages[threadIndex]->write(&data[0], _size.xsize()*sizeof(double));
         }
     }
     quint64 blockNr = int((y1 / blockCacheLimit()));
@@ -120,12 +118,12 @@ void Ilwis::Grid::loadFromCache(unsigned int y1, unsigned int y2, unsigned int z
     quint64 blockNr = int((y1 / blockCacheLimit()));
 
     quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
-    char data[dataSize];
+    std::vector<char> data(dataSize);
     for (unsigned int z = z1; z <= std::min(_size.zsize()-1,z2); ++z){
         for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
             quint64 seekposition = calcSeekPosition(z, y);
             _diskImages[threadIndex]->seek(seekposition);
-            _diskImages[threadIndex]->read(data, dataSize);
+            _diskImages[threadIndex]->read(&data[0], dataSize);
             if ( _orientation == Grid::oXYZ){
                 if (_planes[z][y].size() != _size.xsize())
                     _planes[z][y] = std::vector<double>(_size.xsize());
@@ -137,7 +135,6 @@ void Ilwis::Grid::loadFromCache(unsigned int y1, unsigned int y2, unsigned int z
                     _planes[y][z] = std::vector<double>(_size.xsize());
                 std::memcpy(_planes[y][z].data(), &data[0], _size.xsize() * sizeof(double));
             }
-
         }
     }
     setBlockStatus(z1, blockNr, true);
@@ -167,7 +164,6 @@ void Grid::load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int 
     if ( pastHorizon(y1)){
         dumpBlock(z1,y1,x, threadIndex);
     }
-
 }
 
 void Ilwis::Grid::dumpBlock(int z, int y, int x, int threadIndex)
@@ -178,14 +174,13 @@ void Ilwis::Grid::dumpBlock(int z, int y, int x, int threadIndex)
         createCacheFile(threadIndex);
     }
     quint32 blockNr = int(y/blockCacheLimit()) - 1;
-        auto yb = blockNr  * blockCacheLimit();
-        auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
-        if ( _orientation == Grid::oXYZ && blockStatus(z, blockNr)._valid){
-            dump(yb , yl, z, z,threadIndex);
-        }else if ( blockStatus(0, blockNr)._valid){
-            dump(yb , yl, 0, _size.zsize()-1, threadIndex);
-        }
-
+    auto yb = blockNr  * blockCacheLimit();
+    auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
+    if ( _orientation == Grid::oXYZ && blockStatus(z, blockNr)._valid){
+        dump(yb , yl, z, z,threadIndex);
+    }else if ( blockStatus(0, blockNr)._valid){
+        dump(yb , yl, 0, _size.zsize()-1, threadIndex);
+    }
 }
 
 void Grid::loadFromSource(int z1, int x, int y1){
@@ -203,11 +198,19 @@ void Grid::loadFromSource(int z1, int x, int y1){
     }
 }
 
-PIXVALUETYPE& Grid::value(const Pixel &pix, int threadIndex) {
+PIXVALUETYPE& Grid::valueRef(const Pixel& pix, int threadIndex) {
     quint32 z = pix.z == iUNDEF ? 0 : pix.z;
-    if ( z>= 0 && z < _size.zsize() && pix.y >=0 && pix.y < _size.ysize() && pix.x>=0 && _size.xsize())
+    if (z >= 0 && z < _size.zsize() && pix.y >= 0 && pix.y < _size.ysize() && pix.x >= 0 && pix.x < _size.xsize())
         return value(z, pix.y, pix.x, threadIndex);
     throw ErrorObject("Pixel location out of bounds");
+}
+
+PIXVALUETYPE Grid::value(const Pixel& pix, int threadIndex) {
+    quint32 z = pix.z == iUNDEF ? 0 : pix.z;
+    if (z >= 0 && z < _size.zsize() && pix.y >= 0 && pix.y < _size.ysize() && pix.x >= 0 && pix.x < _size.xsize())
+        return value(z, pix.y, pix.x, threadIndex);
+    else
+        return PIXVALUEUNDEF;
 }
 
 PIXVALUETYPE &Grid::value(int z, int y, int x, int threadIndex)  {
@@ -283,7 +286,6 @@ void Grid::setBlockData(int z, int y, const std::vector<PIXVALUETYPE>& data){
         break;
     }
 }
-
 
 void Grid::setValue(int z, int y, int x, PIXVALUETYPE v, int threadIndex ){
     quint64 blockNr = int((y / blockCacheLimit()));
@@ -390,9 +392,6 @@ bool Grid::isValid() const
     return !(_size.isNull() || _size.isValid());
 }
 
-
-
-
 void Grid::prepare4Operation(int nThreads) {
     _diskImages.resize(nThreads + 1);
     _imageNames.resize(nThreads + 1);
@@ -446,7 +445,6 @@ void Grid::setd3Size(int z, int y, int xzs){
             _validStripe[y][0]._loadedFromSource = true;
 
         }
-
     }
 }
 quint32 Grid::linesPerBlock(int d) const

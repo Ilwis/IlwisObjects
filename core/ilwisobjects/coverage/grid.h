@@ -51,7 +51,8 @@ public:
     void clear();
 
 
-    PIXVALUETYPE &value(const Pixel& pix, int threadIndex = 0) ;
+    PIXVALUETYPE &valueRef(const Pixel& pix, int threadIndex = 0);
+    PIXVALUETYPE value(const Pixel& pix, int threadIndex = 0);
     void setValue(int z, int y, int x, PIXVALUETYPE v , int threadIndex=0);
     void setOrientation(Grid::Orientation ori);
 
@@ -81,11 +82,9 @@ private:
     };
     typedef std::vector<std::deque<quint64>> PlaneBlockCache;
 
-    void getBlock(int z, int y, int x, int threadIndex);
     void dumpBlock(int z, int y, int x, int threadIndex);
     bool createCacheFile(int i);
     //void getBlockData(int d1, int d2, std::vector<PIXVALUETYPE>& data);
-    void updateBlockCache(int d1, quint64 blockNr, int threadIndex);
     PIXVALUETYPE& value(int d1, int d2, int d3, int threadIndex = 0); //d1=z,d2=y,d3=x (XYZ) or d1=y, d2=x, d3=z (ZXY)
     void setBlockDataZXY(int z, int y, const std::vector<PIXVALUETYPE>& data);
     void setBlockDataXYZ(int z, int y, const std::vector<PIXVALUETYPE>& data);
@@ -98,7 +97,7 @@ private:
     void dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) ;
     void load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex);
 
-   const unsigned int BLOCKYHORIZON = 4;
+    const unsigned int BLOCKYHORIZON = 4;
     const unsigned int BLOCKXHORIZON = 8;
     std::vector<Plane> _planes;
     std::vector<std::vector<BlockStatus>> _validStripe;
