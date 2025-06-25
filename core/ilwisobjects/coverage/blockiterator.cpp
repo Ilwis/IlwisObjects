@@ -127,10 +127,9 @@ double& GridBlock::operator ()(qint32 x, qint32 y, qint32 z)
 	if (!actualPosition(x, y, z)) {
 		throw ErrorObject(TR("Pixel values requested outside map boundaries"));
 	}
-		
 
     double &v =_iterator->_raster->_grid->value(z ,y, x, 0);
-
+    return v;
 }
 
 double GridBlock::value(int x, int y, int z) const {
