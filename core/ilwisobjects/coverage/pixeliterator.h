@@ -442,7 +442,7 @@ public:
      * \return a Pixel with the current non lineair position of this PixelIterator
      */
     Pixel position() const;
-    Pixel position(const Pixel& pos) ;
+    void position(const Pixel& pos) ;
 
     /*!
      * \brief Query for the bounding box of this PixelIterator

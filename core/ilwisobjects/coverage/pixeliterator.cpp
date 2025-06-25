@@ -313,7 +313,7 @@ Pixel PixelIterator::position() const
     return Pixel(_x, _y, _z);
 }
 
-Pixel PixelIterator::position(const Pixel& pos) {
+void PixelIterator::position(const Pixel& pos) {
     _xChanged = pos.x != _x;
     _yChanged = pos.y != _y;
     _zChanged = pos.z != _z;
@@ -328,7 +328,6 @@ Pixel PixelIterator::position(const Pixel& pos) {
             _y = _endy;
             _z = _endz;
         }
-
     }
 }
 
