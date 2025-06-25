@@ -202,8 +202,10 @@ IlwisTypes IlwisObject::determineBufferFormat(const Py_buffer &pybuf)
         combos.push_back(std::make_tuple('B', 1, itUINT8));
         combos.push_back(std::make_tuple('h', 2, itINT16));
         combos.push_back(std::make_tuple('H', 2, itUINT16));
-        combos.push_back(std::make_tuple('q', 4, itINT64));
-        combos.push_back(std::make_tuple('Q', 4, itUINT64));
+        combos.push_back(std::make_tuple('q', 4, itINT32));
+        combos.push_back(std::make_tuple('Q', 4, itUINT32));
+        combos.push_back(std::make_tuple('q', 8, itINT64));
+        combos.push_back(std::make_tuple('Q', 8, itUINT64));
         combos.push_back(std::make_tuple('?', 1, itBOOL));
 
         for(auto combo : combos){
