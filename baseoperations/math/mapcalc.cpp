@@ -203,7 +203,6 @@ OperationImplementation::State MapCalc::prepare(ExecutionContext *ctx,const Symb
             if(!raster.prepare(url)){
                 return sPREPAREFAILED;
             }
-            raster->useCache(false);
             if ( stackdef.isValid()){
                 if(!stackdef.checkStackDefintion(raster->stackDefinition())){
                     kernel()->issues()->log(TR("Incompatible stack definition for ") +raster->name() ) ;
