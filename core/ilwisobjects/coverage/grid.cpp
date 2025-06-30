@@ -65,7 +65,7 @@ Grid *Grid::clone(quint64 newRasterId, int dLimit1, int dLimit2)
             }
         }
     }
-
+    //grid->closure();
     return grid;
 
 }
@@ -151,7 +151,7 @@ void Ilwis::Grid::setBlockStatus( unsigned int z1, quint64 blockNr, bool status)
 void Grid::load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex){
     quint64 blockNr = int((y1 / blockCacheLimit()));
     IIlwisObject obj = mastercatalog()->get(_rasterid);
-    if (obj.isValid() || _imageNames.size() > 0) { //.is used in the clone function; an emptry grid is created without(yet) a raster belonging to it
+    if (obj.isValid() || _imageNames.size() > 0 ) { //.is used in the clone function; an emptry grid is created without(yet) a raster belonging to it
         if (blockStatus(z1,blockNr)._loadedFromSource && _useCache){
                 loadFromCache(y1,y2,z1, z2,  x, threadIndex);
             }else{
@@ -161,9 +161,11 @@ void Grid::load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int 
        setBlockStatus(z1, blockNr, true);
     }
 
+
     if ( pastHorizon(y1)){
         dumpBlock(z1,y1,x, threadIndex);
     }
+
 }
 
 void Ilwis::Grid::dumpBlock(int z, int y, int x, int threadIndex)
@@ -174,13 +176,14 @@ void Ilwis::Grid::dumpBlock(int z, int y, int x, int threadIndex)
         createCacheFile(threadIndex);
     }
     quint32 blockNr = int(y/blockCacheLimit()) - 1;
-    auto yb = blockNr  * blockCacheLimit();
-    auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
-    if ( _orientation == Grid::oXYZ && blockStatus(z, blockNr)._valid){
-        dump(yb , yl, z, z,threadIndex);
-    }else if ( blockStatus(0, blockNr)._valid){
-        dump(yb , yl, 0, _size.zsize()-1, threadIndex);
-    }
+        auto yb = blockNr  * blockCacheLimit();
+        auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
+        if ( _orientation == Grid::oXYZ && blockStatus(z, blockNr)._valid){
+            dump(yb , yl, z, z,threadIndex);
+        }else if ( blockStatus(0, blockNr)._valid){
+            dump(yb , yl, 0, _size.zsize()-1, threadIndex);
+        }
+
 }
 
 void Grid::loadFromSource(int z1, int x, int y1){
@@ -322,6 +325,7 @@ bool Grid::prepare(quint64 rasterid, const Size<> &sz) {
 void Grid::setOrientation(Grid::Orientation ori){
     auto unloadMap = _validStripe.size() == 0;
     if ( ori != _orientation || unloadMap){
+        closure();
         _orientation = ori;
         _validStripe = std::vector<std::vector<BlockStatus>>();
 
@@ -494,12 +498,24 @@ bool Grid::pastHorizon(quint32 v) const {
 void Grid::closure()
 {
     if ( _validStripe.size() > 0){
-        for(quint32 z=0; z < _size.zsize(); ++z){
-            for(quint32 yb=0; yb < _validStripe[z].size(); ++yb){
-                const auto& st = _validStripe[z][yb];
-                if ( st._valid){
-                    auto y = (yb + 1) * blockCacheLimit();
-                    dumpBlock(z,y,0,0);
+        if ( _orientation == oXYZ){
+            for(quint32 z=0; z < _size.zsize(); ++z){
+                for(quint32 yb=0; yb < _validStripe[z].size(); ++yb){
+                    const auto& st = _validStripe[z][yb];
+                    if ( st._valid){
+                        auto y = (yb + 1) * blockCacheLimit();
+                        dumpBlock(z,y,0,0);
+                    }
+                }
+            }
+        }else{
+            for(quint32 yb=0; yb < _validStripe.size(); ++yb){
+                for(quint32 z=0; z < _size.zsize(); ++z){
+                    const auto& st = _validStripe[yb][z];
+                    if ( st._valid){
+                        auto y = (yb + 1) * blockCacheLimit();
+                        dumpBlock(z,y,0,0);
+                    }
                 }
             }
         }
