@@ -62,7 +62,7 @@ namespace Ilwis {
 
             NEW_CATALOGEXPLORER(NetCdfCatalogExplorer);
             IlwisObject *createType(IlwisTypes tp);
-            static std::vector<Resource> createResources(const QUrl &url) ;
+            static std::vector<Resource> createResources(const QUrl &url, const QString &product = "") ;
             static std::map<QString, QVariant> getGlobals(const std::multimap<std::string, netCDF::NcGroupAtt> &attributes) ;
             static void setMetaData(const std::map<QString, QVariant> &globals, Resource &res);
             static std::map<QString, std::pair<unsigned int, QString> > getDimensions(const std::multimap<std::string, netCDF::NcVar> &vars, const netCDF::NcVar &var) ;
@@ -71,6 +71,8 @@ namespace Ilwis {
             static void setRasterGeometryinResource(const Ilwis::ICoordinateSystem &csy, const Ilwis::IGeoReference &grf, const Size<> &sz, Ilwis::Resource &res) ;
             static QString getProjection(const std::string &gridMapName) ;
             static NetCdfCatalogExplorer::AxisType getAxisType(const std::multimap< std::string, netCDF::NcVar >::const_iterator &iterAxis);
+            static QString getProj4Def(const netCDF::NcVar& crsVar);
+            static QString getESPGDef(const netCDF::NcVar &crsVar);
         };
     }
 }

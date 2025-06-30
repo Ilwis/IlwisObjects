@@ -49,12 +49,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 using namespace Ilwis;
 using namespace NetCdf;
 
-const QString NETCDFXDIM = "projection_x_coordinate";
-const QString NETCDFYDIM = "projection_y_coordinate";
-const QString NETCDFZDIM = "z";
-const QString NETCDFTDIM = "t";
-const QString NETCDFLONDIM = "longitude";
-const QString NETCDFLATDIM = "latitude";
+
+const std::set<QString> skippableVarName= {"x","y","lat","lon","time"};
+const std::set<QString> xlables = {"projection_x_coordinate", "x", "lon", "longitude"};
+const std::set<QString> ylables = {"projection_y_coordinate", "y", "lat", "latitude"};
+const std::set<QString> zlables = {"time", "t","z"};
 
 REGISTER_CATALOGEXPLORER(NetCdfCatalogExplorer)
 
@@ -233,15 +232,34 @@ QString NetCdfCatalogExplorer::getProjection(const std::string&  gridMapName) {
 }
 
 
+QString Ilwis::NetCdf::NetCdfCatalogExplorer::getProj4Def(const netCDF::NcVar& crsVar)
+{
+    std::string proj4;
+    auto varAtt = crsVar.getAtt("proj4_params");
+    varAtt.getValues(proj4);
+    QString prj4def = QString::fromStdString(proj4).remove("\"");
+    return prj4def;
+}
+
+QString Ilwis::NetCdf::NetCdfCatalogExplorer::getESPGDef(const netCDF::NcVar& crsVar)
+{
+    std::string epsg;
+    auto varAtt = crsVar.getAtt("epsg_code");
+    varAtt.getValues(epsg);
+    // epsg field is not standardized; it may contain a number of a tag epsg: or .... intepreted here
+    if ( epsg.find("EPSG") == std::string::npos && epsg.find("epsg") == std::string::npos){
+        epsg = "epsg:" + epsg;
+    }
+    return QString::fromStdString(epsg);
+}
+
 ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std::string, netCDF::NcVar>& vars, const std::pair<std::string,netCDF::NcVar>& var) {
 
 
     std::map<std::string,netCDF::NcVarAtt> atts = var.second.getAtts();
     std::map<std::string,netCDF::NcVarAtt>::const_iterator iterAtts = atts.find("grid_mapping");
-    auto atts2 = vars.find("projection");
-    std::map<std::string,netCDF::NcVarAtt> atts3 = atts2->second.getAtts();
-    std::map<std::string,netCDF::NcVarAtt>::const_iterator iterAtts3 = atts3.find("long_name");
     std::map<QString, QVariant> gridMapping;
+
     ICoordinateSystem csy;
     //if no grid mapping van be found we assume it's epsg:4326; unless we find an alternative system
     if ( iterAtts != atts.end()){
@@ -266,14 +284,10 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
                     return ICoordinateSystem();
                 }
                 if ( iterGridAtt.first == "epsg_code"){
-                    std::string epsg;
-                    auto varAtt = crsVar.getAtt("epsg_code");
-                    varAtt.getValues(epsg);
-                    // epsg field is not standardized; it may contain a number of a tag epsg: or .... intepreted here
-                    if ( epsg.find("EPSG") == std::string::npos && epsg.find("epsg") == std::string::npos){
-                        epsg = "epsg:" + epsg;
-                    }
-                    gridMapping["epsg"] = QString::fromStdString(epsg);
+                    gridMapping["epsg"] = getESPGDef(crsVar);
+                }
+                if ( iterGridAtt.first == "proj4_params"){
+                    gridMapping["proj4"] = getProj4Def(crsVar);
                 }
                 // the following list is not exhaustive as this list ( as with all things in netcdf) is not standardized. So different netcdf keys may map to the same proj4 key
                 // depending of the convetion/organization etc ... that filled this in.
@@ -318,7 +332,7 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
                     gridMapping["y_0"] = fn;
                 }
                 if (iterGridAtt.first == "crs_wkt"){
-                    std::string wkt;auto iterAtts2 = vars.find("projection");
+                    std::string wkt;
                     iterGridAtt.second.getValues(wkt);
                     csy = CoordinateSystem::fromWKT(QString::fromStdString(wkt));
                 }
@@ -326,8 +340,21 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
         }else
             gridMapping["epsg"] = "epsg:4326";
     }else{
-
-       gridMapping["epsg"] = "epsg:4326";
+       auto atts2 = vars.find("projection");
+       if ( atts2 != vars.end()){
+           std::map<std::string,netCDF::NcVarAtt> atts3 = atts2->second.getAtts();
+           std::map<std::string,netCDF::NcVarAtt>::const_iterator iterAtts3 = atts3.find("proj4_params");
+           if ( iterAtts3 != atts3.end()){
+               std::string prj4;
+               iterAtts3->second.getValues(prj4);
+               QString prj4def = QString::fromStdString(prj4).remove("\"");
+               gridMapping["proj4"] = prj4def;
+           }else{
+                gridMapping["epsg"] = "epsg:4326";
+           }
+       }else{
+          gridMapping["epsg"] = "epsg:4326";
+       }
     }
     if ( !csy.isValid()) { // we could have a wkt convention which already properly fills out all things in case we have a csy; if not we construct
         // if we have an epsg we ignore the rtest
@@ -347,9 +374,15 @@ ICoordinateSystem NetCdfCatalogExplorer::getCoordSystem(const std::multimap<std:
                 }
                 if(!csy.prepare("code=" + proj4))
                     return ICoordinateSystem();
-            }else
-                return ICoordinateSystem();
-
+            }else{
+                iter = gridMapping.find("proj4");
+                if ( iter != gridMapping.end()){
+                    QString proj4 = iter->second.toString();
+                    if(!csy.prepare("code=" + proj4))
+                        return ICoordinateSystem();
+                } else
+                    return ICoordinateSystem();
+            }
 
         }
     }
@@ -405,20 +438,20 @@ NetCdfCatalogExplorer::AxisType NetCdfCatalogExplorer::getAxisType(const std::mu
             return atZ;
     }catch(netCDF::exceptions::NcException& e){
         auto name = iterAxis->first;
-        if ( name == "x")
+        if ( xlables.find(QString::fromStdString(name)) != xlables.end())
             return atX;
-        if ( name == "y")
+        if ( ylables.find(QString::fromStdString(name)) != ylables.end())
             return atY;
-        if ( name == "z" || name == "t")
+        if ( zlables.find(QString::fromStdString(name)) != zlables.end())
             return atZ;
 
         try{
             netCDF::NcVarAtt att = iterAxis->second.getAtt("standard_name");
-            if ( name == "projection_x_coordinate")
+            if ( xlables.find(QString::fromStdString(name)) != xlables.end())
                 return atX;
-            if ( name == "projection_y_coordinate")
+            if ( ylables.find(QString::fromStdString(name)) != ylables.end())
                 return atY;
-            if ( name == "z" || name == "t")
+            if ( zlables.find(QString::fromStdString(name)) != zlables.end())
                 return atZ;
         } catch(netCDF::exceptions::NcException& e){
             return atUNKNOWN;
@@ -435,8 +468,8 @@ IGeoReference NetCdfCatalogExplorer::getGrfs(const QString& path, const Size<> s
     }
     auto env = csy->envelope();
 
-    QString code = QString("code=georef:type=corners,csy=ilwis://system/coordinatesystems/%1,envelope=%2 %3 %4 %5,gridsize=%6 %7")
-            .arg(csy->code())
+    QString code = QString("code=georef:type=corners,csy=%1,envelope=%2 %3 %4 %5,gridsize=%6 %7")
+            .arg(csy->resource().url().toString())
             .arg(env.min_corner().x)
             .arg(env.min_corner().y)
             .arg(env.max_corner().x)
@@ -466,32 +499,78 @@ void NetCdfCatalogExplorer::setRasterGeometryinResource(const ICoordinateSystem&
 Size<> constructSize(std::map<QString, std::pair<unsigned int, QString>>& dimensions){
     int xs = iUNDEF, ys = iUNDEF, zs = 1;
     for(auto p = dimensions.begin(); p != dimensions.end(); ++p){
-        if ( (*p).first == NETCDFXDIM || (*p).first == NETCDFLONDIM)
+        if ( xlables.find((*p).first) != xlables.end())
             xs = (*p).second.first;
-        if ( (*p).first == NETCDFYDIM || (*p).first == NETCDFLATDIM)
+        if ( ylables.find((*p).first) != ylables.end())
             ys = (*p).second.first;
-        if ( (*p).first == NETCDFZDIM || (*p).first == NETCDFTDIM)
+        if ( zlables.find((*p).first) != zlables.end())
             zs = (*p).second.first;
     }
     return Size<>(xs,ys,zs);
 }
 
-QString getAttributeValue(const netCDF::NcVar& v, const QString& label) {
+QVariant getAttributeValue(const netCDF::NcVar& v, const QString& label) {
     try{
         auto att2 = v.getAtt(label.toStdString());
-        std::string s;
-        att2.getValues(s);
-        return QString::fromStdString(s)    ;
+        auto dtype = att2.getType();
+        auto ddtype = dtype.getTypeClass();
+        if ( ddtype == netCDF::NcType::nc_STRING || ddtype == netCDF::NcType::nc_CHAR){
+            std::string s;
+            att2.getValues(s);
+            return QString::fromStdString(s);
+        }else if ( ddtype == netCDF::NcType::nc_FLOAT){
+            float f;
+            att2.getValues(&f);
+            return QVariant(f);
+        }else if ( ddtype == netCDF::NcType::nc_DOUBLE){
+            double f;
+            att2.getValues(&f);
+            return f;
+         }else if ( ddtype == netCDF::NcType::nc_INT){
+            qint32 f;
+            att2.getValues(&f);
+            return f;
+         }else if ( ddtype == netCDF::NcType::nc_INT64){
+            qint64 f;
+            att2.getValues(&f);
+            return f;
+         }else if ( ddtype == netCDF::NcType::nc_UINT){
+            quint32 f;
+            att2.getValues(&f);
+            return f;
+         }else if ( ddtype == netCDF::NcType::nc_UINT64){
+            quint64 f;
+            att2.getValues(&f);
+            return f;
+         }else if ( ddtype == netCDF::NcType::nc_UBYTE){
+            quint8 f;
+            att2.getValues(&f);
+            return f;
+         }else if ( ddtype == netCDF::NcType::nc_BYTE){
+            qint8 f;
+            att2.getValues(&f);
+           return f;
+         }else if ( ddtype == netCDF::NcType::nc_SHORT){
+            quint16 f;
+            att2.getValues(&f);
+           return f;
+         }else if ( ddtype == netCDF::NcType::nc_USHORT){
+            quint16 f;
+            att2.getValues(&f);
+            return f;
+         }
+        return QVariant();
 
     } catch(const std::exception& ex){
-        return sUNDEF;
+        return QVariant();
     }
-    return sUNDEF;
+    return QVariant();
 
 
 
 }
-std::vector<Resource> NetCdfCatalogExplorer::createResources(const QUrl& url)  {
+
+std::vector<Resource> NetCdfCatalogExplorer::createResources(const QUrl& url, const QString& product)  {
     std::vector<Resource> items;
     QFileInfo inf = url.toLocalFile();
     try
@@ -511,46 +590,50 @@ std::vector<Resource> NetCdfCatalogExplorer::createResources(const QUrl& url)  {
 
     for(auto var : vars) {
         std::map<QString, std::pair<unsigned int, QString>> dimensions = getDimensions(vars, var.second);
+        QString name = QString::fromStdString(var.first);
+        if ( skippableVarName.find(name) != skippableVarName.end())
+            continue;
+        if ( product != "" && product != name)
+            continue;
         if ( dimensions.size() > 1){ // this is a real layer
             std::vector<IGeoReference> grfs;
             Size<> sz = constructSize(dimensions);
-            QString name = QString::fromStdString(var.first);
             QString path = url.toString() + "/" + name;
             ICoordinateSystem csy = getCoordSystem(vars, var);
             IGeoReference grf = getGrfs(path,sz, csy, grfs);
-            Resource resCat(url, itCATALOG);
             if ( dimensions.size() == 2){ // simple 1 band raster
                 Resource res = Resource(path, itRASTER);
                 res.name(QString::fromStdString(var.first), false, true);
                 res.addContainer(url);
                 setRasterGeometryinResource(csy, grf, sz,res);
                 netCDF::NcVar v = var.second;
-                auto s = getAttributeValue(v, "long_name");
+                auto s = getAttributeValue(v, "long_name").toString();
                 res.setDescription(s);
-                s = getAttributeValue(v, "cell_methods");
+                s = getAttributeValue(v, "cell_methods").toString();
                 if ( s != sUNDEF)
                     res.addMetaTag("product.cell.modes", s);
 
-                s = getAttributeValue(v, "_FillValue");
-                if ( s != sUNDEF)
-                    res.addProperty("undefined_value",  s.toDouble());
+                auto qvar = getAttributeValue(v, "_FillValue");
+                if ( !qvar.isNull())
+                    res.addProperty("undefined_value",  qvar.toDouble());
+                res.addProperty("used var", QString::fromStdString(var.first));
                 items.push_back(res);
 
             }else {
                 path = url.toString();
-                Resource res(path,itRASTER);
+                Resource res(path + "/" + name,itRASTER);
                 res.setExtendedType( itCATALOG);
                 setRasterGeometryinResource(csy, grf, sz,res);
                 netCDF::NcVar v = var.second;
-                auto s = getAttributeValue(v, "long_name");
+                auto s = getAttributeValue(v, "long_name").toString();
                 res.setDescription(s);
-                s = getAttributeValue(v, "cell_methods");
+                s = getAttributeValue(v, "cell_methods").toString();
                 if ( s != sUNDEF)
                     res.addMetaTag("product.cell.modes", s);
 
-                s = getAttributeValue(v, "_FillValue");
-                if ( s != sUNDEF)
-                    res.addProperty("undefined_value",  s.toDouble());
+                auto qvar = getAttributeValue(v, "_FillValue");
+                if ( !qvar.isNull())
+                    res.addProperty("undefined_value",  qvar.toDouble());
                 QString keys;
                 for(auto const& k: dimensions){
                     keys += keys.size() == 0 ? k.first: QString("|") + k.first;
@@ -559,9 +642,13 @@ std::vector<Resource> NetCdfCatalogExplorer::createResources(const QUrl& url)  {
                 res.addProperty("used var", QString::fromStdString(var.first));
                 items.push_back(res);
             }
-            items.push_back(resCat);
 
         }
+
+    }
+    if ( items.size() > 0){
+        Resource resCat(url, itCATALOG);
+        items.push_back(resCat);
     }
     file.close();
     return items;

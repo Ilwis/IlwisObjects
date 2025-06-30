@@ -55,9 +55,13 @@ IlwisObject *NetCdfRasterConnector::create() const {
 bool NetCdfRasterConnector::loadMetaData(IlwisObject *obj, const IOOptions &)
 {
     auto url = obj->resource().url();
-    auto items = NetCdfCatalogExplorer::createResources(url);
+    auto idx = url.toString().lastIndexOf("/");
+    QString urls = url.toString();
+    QString ncdfFile = urls.left(idx);
+    QString product = url.toString().right(url.toString().size() - idx - 1);
+    auto items = NetCdfCatalogExplorer::createResources(ncdfFile, product);
     const Resource& res = items[0];
-    QString csyCode = res["coordinatesystem"].toString();
+    QString csyCode = "code=proj4:" + res["coordinatesystem"].toString();
     ICoordinateSystem csy;
     if (!csy.prepare(csyCode))
         return false;
@@ -104,8 +108,12 @@ QString getAttrValue(const netCDF::NcVar& v, const QString& label) {
 template<class T> void NetCdfRasterConnector::getValues(const std::vector<size_t>& index, const std::vector<size_t>& count, int maxX, int maxY,  bool xy, netCDF::NcVar& var,std::vector<T>&data, std::vector<double>& values){
     try
     {
+    QString s;
     var.getVar(index,count, data.data());
-    QString s = getAttrValue(var, "_FillValue");
+    if ( _resource.hasProperty("undefined_value")){
+       s = _resource["undefined_value"].toString();
+    }else
+        s = getAttrValue(var, "_FillValue");
     double undef = s == sUNDEF ? rUNDEF : s.toDouble();
 
     for(int y =0; y < maxY; ++y){
@@ -172,7 +180,12 @@ bool NetCdfRasterConnector::loadData(IlwisObject* obj, const IOOptions& options)
 
     if (!_binaryIsLoaded) {
         const Resource& res = obj->resourceRef();
-        auto filename = res.url().toLocalFile();
+        auto urls = res.url().toString();
+        auto idx = urls.lastIndexOf("/");
+        QString ncdfFile = urls.left(idx);
+        QString product = urls.right(urls.size() - idx - 1);
+        auto filename = QUrl(ncdfFile).toLocalFile();
+
         netCDF::NcFile file(filename.toStdString(), netCDF::NcFile::read);
         std::multimap<std::string,netCDF::NcVar> vars = file.getVars();
         auto name = res["used var"].toString();
@@ -203,17 +216,13 @@ bool NetCdfRasterConnector::loadData(IlwisObject* obj, const IOOptions& options)
         for(netCDF::NcDim dim : dims){
             auto axisName = dim.getName();
             std::multimap< std::string, netCDF::NcVar >::const_iterator iterAxis= vars.find(axisName);
-            netCDF::NcVarAtt axisType =  iterAxis->second.getAtt("axis");
-            std::string axisTypeS;
-            axisType.getValues(axisTypeS);
-            if ( axisTypeS == "X")
+            auto axisType = NetCdfCatalogExplorer::getAxisType(iterAxis);
+            if ( axisType == NetCdfCatalogExplorer::atX )
                axisLocations[0] = acount;
-            if ( axisTypeS == "Y")
+            if ( axisType == NetCdfCatalogExplorer::atY)
                axisLocations[1] = acount;
-            if ( axisTypeS == "Z")
+            if ( axisType == NetCdfCatalogExplorer::atZ)
                axisLocations[2] = acount;
-            if ( axisTypeS == "T")
-               axisLocations[3] = acount;
             ++acount;
         }
         std::vector<size_t> index = {0,0,0,0};
