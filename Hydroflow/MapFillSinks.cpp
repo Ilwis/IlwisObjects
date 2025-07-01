@@ -201,8 +201,8 @@ void MapFillSinks::executeFillSink()
                  *initial sink then fill the depressions, otherwise
                  *if they are equal to, no filling is needed*/
                 if (method == fmFill) {
-                    if (getPixelValue(rcOutlet) >
-                        getPixelValue(pxl))
+                    if (*iterOut(rcOutlet) >
+                        *iterOut(pxl))
                     {
                         DepresFill(rcOutlet);
                     }
@@ -231,11 +231,11 @@ void MapFillSinks::CutTerrain(Pixel rcOutlet)
     //cell with lowest height to the outlet is selected for
     //breaching and filling in this case
     double cutValue = getCutValue(rcOutlet);
-    double rHeight = getPixelValue(rcOutlet);
-    std::deque<Pixel>::iterator pos;
+    double rHeight = *iterOut(rcOutlet);
+    std::vector<Pixel>::iterator pos;
     for (pos = _vPxlSinks.begin(); pos != _vPxlSinks.end(); ++pos)
     {
-        if (getPixelValue(*pos) <= rHeight)
+        if (*iterOut(*pos) <= rHeight)
         {
             setPixelValue(*pos, cutValue);
             *(iterFlag(*pos)) = -1; //flag the cell within the sink area
@@ -248,13 +248,13 @@ void MapFillSinks::CutTerrain(Pixel rcOutlet)
 double MapFillSinks::getCutValue(Pixel rcOutlet)
 {
     //Get the lowerest height of the neighbouring cells of the outlet
-    double rHeight = getPixelValue(rcOutlet);
+    double rHeight = *iterOut(rcOutlet);
     for (int i = -1; i < 2; ++i)
     {
         for (int j = -1; j < 2; ++j)
         {
-            if (getPixelValue(Pixel(rcOutlet.x + j, rcOutlet.y + i,0)) < rHeight)
-                rHeight = getPixelValue(Pixel(rcOutlet.x + j, rcOutlet.y + i,0));
+            if (*iterOut(Pixel(rcOutlet.x + j, rcOutlet.y + i,0)) < rHeight)
+                rHeight = *iterOut(Pixel(rcOutlet.x + j, rcOutlet.y + i,0));
         }
     }
 
@@ -265,7 +265,7 @@ double MapFillSinks::getCutValue(Pixel rcOutlet)
 void MapFillSinks::FlatAreaFlag(Pixel rcOutlet)
 {
     //flag the cells in an existing flat area
-    std::deque<Pixel>::iterator pos;
+    std::vector<Pixel>::iterator pos;
     for (pos = _vPxlSinks.begin(); pos != _vPxlSinks.end(); ++pos)
     {
         //_vFlags[(*pos).y][(*pos).x] = -1;
@@ -278,11 +278,11 @@ void MapFillSinks::DepresFill(Pixel rcOutlet)
 {
     /*for each cell in the sink cont. area, if it is lower than the
      *elevation of the outlet, raise iis elevation to that of outlet.*/
-    double rHeight = getPixelValue(rcOutlet);
-    std::deque<Pixel>::iterator pos;
+    double rHeight = *iterOut(rcOutlet);
+    std::vector<Pixel>::iterator pos;
     for (pos = _vPxlSinks.begin(); pos != _vPxlSinks.end(); ++pos)
     {
-        if (getPixelValue(*pos) < rHeight)
+        if (*iterOut(*pos) < rHeight)
             setPixelValue(*pos, rHeight);
 
        // _vFlags[pos->y][pos->x] = -1;  //flag the cell within the sink area
@@ -303,24 +303,16 @@ void MapFillSinks::SingleSinkFill()
     iterDEM = PixelIterator(_inRaster, BoundingBox(), PixelIterator::fXYZ);
     PixelIterator inEnd = iterDEM.end();
 
-    while (iterDEM != inEnd)
-    {
-        Pixel pxl = iterDEM.position();
-        if (onEdge(pxl))
-            *(iterFlag(pxl)) = -2;
-        else if( *(iterDEM[pxl]) == rUNDEF )
-                FlagNeighbors(pxl);
-        iterDEM++;
-    }
-
-    iterDEM = Ilwis::begin(_inRaster); // back to start position
-
     std::vector<double>::iterator pos;
 
     while (iterDEM != inEnd)
     {
         Pixel pxl = iterDEM.position();
-        if ( !onEdge(pxl) && !IsUndef(pxl))
+        if (onEdge(pxl))
+            *(iterFlag(pxl)) = -2;
+        else if (*(iterDEM[pxl]) == rUNDEF)
+            FlagNeighbors(pxl);
+        else
         {
             std::vector<double> vNbs;
             GetNeighborCells(pxl, vNbs);
@@ -328,11 +320,11 @@ void MapFillSinks::SingleSinkFill()
             double rMin = *pos;
             if (*(iterOut(pxl)) < rMin)
                 *(iterOut(pxl)) = rMin;
-
         }
         iterDEM++;
     }
 
+   
  }
 
 
@@ -413,15 +405,15 @@ double MapFillSinks::getPixelValue(Pixel pxl)
 void MapFillSinks::FindSinkContArea(Pixel rcInitSink)
 {
     //*define the extent of sink contributing area
-    std::deque<Pixel> vStartCells;
+    std::vector<Pixel> vStartCells;
     FlagAdjaCell(rcInitSink, vStartCells);
 
     /*identify the outward adjacent cells for each of starting cells
      *put the located cells in vrcOutwardCells
      *flag the located cells in vSinkFlagged*/
 
-    std::deque<Pixel>::iterator pos;
-    std::deque<Pixel> vAdjaCells;
+    std::vector<Pixel>::iterator pos;
+    std::vector<Pixel> vAdjaCells;
     *(iterFlag(rcInitSink)) = m_iFlag;
     //_vFlags[rcInitSink.y][rcInitSink.x] = m_iFlag;
     _vPxlSinks.resize(0);
@@ -445,7 +437,7 @@ void MapFillSinks::FindSinkContArea(Pixel rcInitSink)
 void MapFillSinks::FindSinkContArea2(Pixel rcInitSink)
 {
     //*define the extent of sink contributing area
-    std::deque<Pixel> vStartCells;
+    std::vector<Pixel> vStartCells;
     m_sinkPixels = 1;
     FlagAdjaCell(rcInitSink, vStartCells);
 
@@ -453,8 +445,8 @@ void MapFillSinks::FindSinkContArea2(Pixel rcInitSink)
      *put the located cells in vrcOutwardCells
      *flag the located cells in vSinkFlagged*/
 
-    std::deque<Pixel>::iterator pos;
-    std::deque<Pixel> vAdjaCells;
+    std::vector<Pixel>::iterator pos;
+    std::vector<Pixel> vAdjaCells;
     *(iterFlag(rcInitSink)) = m_iFlag;
     _vPxlSinks.resize(0);
     _vPxlSinks.push_back(rcInitSink);
@@ -477,7 +469,7 @@ void MapFillSinks::FindSinkContArea2(Pixel rcInitSink)
 
 
 
-void MapFillSinks::FlagAdjaCell(Pixel rcStartCell, std::deque<Pixel>& vAdj)
+void MapFillSinks::FlagAdjaCell(Pixel rcStartCell, std::vector<Pixel>& vAdj)
 {
     /*check and skip if a cell
     *is undefined or
@@ -497,13 +489,13 @@ void MapFillSinks::FlagAdjaCell(Pixel rcStartCell, std::deque<Pixel>& vAdj)
 
             if ( *(iterFlag(adj)) != m_iFlag &&
                 *(iterFlag(adj)) > -2 &&
-                getPixelValue(adj) >= getPixelValue(rcStartCell))
+                *iterOut(adj) >= *iterOut(rcStartCell))
             {
                 vAdj.push_back(adj);
                 *(iterFlag(adj)) = m_iFlag;
                 ival = *(iterFlag(adj));
 
-                if (getPixelValue(adj) == m_sinkHeight)
+                if (*iterOut(adj) == m_sinkHeight)
                     m_sinkPixels++;
             }
         }
@@ -530,10 +522,10 @@ private:
 bool MapFillSinks::fIdentifyOutletCell(Pixel rcSink, Pixel& rcOutlet)
 {
     //Find outlet cell in the rim of the sink contributing area
-    std::deque<Pixel> vOutlets; //potential outlets
+    std::vector<Pixel> vOutlets; //potential outlets
     vOutlets.resize(0);
 
-    std::deque<Pixel>::iterator pos = _vPxlSinks.begin();
+    std::vector<Pixel>::iterator pos = _vPxlSinks.begin();
     double minval(.0);
     bool hasOuetlet(false);
 
@@ -566,7 +558,7 @@ bool MapFillSinks::IsPotentialOutlet(Pixel pxl)
     /*Check if the current cell lies at the rim of the sink cont. area, and
      *is higher than a cell, which is outside of the arae.*/
 
-    double rHeight = getPixelValue(pxl);
+    double rHeight = *iterOut(pxl);
     for (int i = -1; i < 2; ++i)
     {
         for (int j = -1; j < 2; ++j)
@@ -576,12 +568,12 @@ bool MapFillSinks::IsPotentialOutlet(Pixel pxl)
             {
                 if (*(iterFlag(pospxl)) == -2)	//flat area lies at the edge of DEM
                 {
-                    if (rHeight >= getPixelValue(pospxl))
+                    if (rHeight >= *iterOut(pospxl))
                         return true;
                 }
                 else
                 {
-                    if (rHeight > getPixelValue(pospxl))
+                    if (rHeight > *iterOut(pospxl))
                         return true;
                 }
             }
@@ -611,7 +603,7 @@ void MapFillSinks::GroupSinksFill()
         Pixel rcSink = iterDEM.position();
         if ( !onEdge(rcSink) && fLocateInitialSink(rcSink) )
         {
-            m_sinkHeight = getPixelValue(rcSink);
+            m_sinkHeight = *iterOut(rcSink);
             /*increment flag variable, locate the extent of the
             contributing sink area*/
             m_iFlag++; //increment by the number of init. sink
@@ -625,7 +617,7 @@ void MapFillSinks::GroupSinksFill()
                     /*if the elevation of outlet is greater than that of the
                      *initial sink then fill the depressions, otherwise
                      *if they are equal to, no filling is needed*/
-                    if ( getPixelValue(rcOutlet) > getPixelValue(rcSink) )
+                    if ( *iterOut(rcOutlet) > *iterOut(rcSink) )
                         DepresFill(rcOutlet);
                     else
                         FlatAreaFlag(rcOutlet);
