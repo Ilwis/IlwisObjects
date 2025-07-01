@@ -403,7 +403,6 @@ void MapCatchmentExtraction::SetAttributeTable()
 
 	IFlatTable newTable;
 	newTable.prepare();
-	newTable->addColumn(_outCatchmentRaster->primaryKey(), _outDomain);
 
 	_outputTable = newTable;
 
@@ -448,14 +447,11 @@ void MapCatchmentExtraction::GetAttributes()
 	std::vector<QVariant> colDownstreamLink = tblAtt->column(sDownstreamLink);
 	std::vector<QVariant> colDownstreamCoord = tblAtt->column(QString("TostreamCoord"));
 
-	std::vector<QVariant> colPrimaryKey = tblAtt->column(_inDrngOrderRaster->primaryKey());
-
 	long iSize = tblAtt->recordCount();
 	AttCols ac;
 	for (long i = 0; i < iSize; i++) 
 	{
-		QVariant val = colPrimaryKey[i];
-		ac.DrainageID = val.toInt()+1;
+		ac.DrainageID = i+1;
 		if (ac.DrainageID == iUNDEF )
 			continue;
 		ac.DownstreamLink = colDownstreamLink[i].toInt();
@@ -496,8 +492,6 @@ void MapCatchmentExtraction::ComputeCatchmentAttributes()
 
 	ITable tblAtt = _inDrngOrderRaster->attributeTable();
 
-	std::vector<QVariant> colStreamID = tblAtt->column(_inDrngOrderRaster->primaryKey());
-
 	std::vector<QVariant> colUpstreamLink = tblAtt->column(sUpstreamLink);
 	IDomain colUplinkDomain = tblAtt->columndefinitionRef(sUpstreamLink).datadef().domain();
 
@@ -507,7 +501,7 @@ void MapCatchmentExtraction::ComputeCatchmentAttributes()
 	std::vector<QVariant> colDownstreamLink = tblAtt->column(sDownstreamLink);
 	std::vector<QVariant> colFlowLength = tblAtt->column(QString("Length"));
 
-	long iSize = colStreamID.size();
+	long iSize = tblAtt->recordCount();
 
 	//Define catchment attributes
 	_outputTable->addColumn("DrainageID", IlwisObject::create<IDomain>("value"),true);
@@ -545,7 +539,7 @@ void MapCatchmentExtraction::ComputeCatchmentAttributes()
 	for (long i = 0; i <iSize; i++)
 	{
 		//long iid = colUplinkDomain->da
-		long iDrainageID = colStreamID[i].toInt()+1;
+		long iDrainageID = i+1;
 		vUpstreamLinks.DrainageID = iDrainageID;
 		SplitString(colUpstreamLink[i].toString(), QString(","),vUpstreamLinks.UpstreamLink);
 		m_vvUpstreamLinks.push_back(vUpstreamLinks);
@@ -571,34 +565,16 @@ void MapCatchmentExtraction::ComputeCatchmentAttributes()
 			*_idrange << id;
 		}
 
+		long iDrainageID = record;
 		record = record - 1;
-		long iDrainageID = colStreamID[record].toInt()+1;
 		if (iDrainageID == iUNDEF)
 			continue;
 		_outputTable->setCell("DrainageID", record, QVariant((int)iDrainageID));
 		_outputTable->setCell("UpstreamLinkCatchment", record, QVariant(colUpstreamLink[record].toString()));
 		_outputTable->setCell("DownstreamLinkCatchment", record, QVariant(colDownstreamLink[record].toInt()));
 		_outputTable->setCell("LongestFlowLength", record, QVariant(colFlowLength[record].toDouble()));
-	
-		////Initialize the totalarea  to the catchment area itsself, if it is a source link, it should be
-		////Otherwise, assign an no data value, this will be computed later
-
-	/*	AttUpstreamLink vULs(m_vvUpstreamLinks[i - 1]);
-
-		if (vULs.UpstreamLink.size() == 1 && vULs.UpstreamLink[0] == 0)
-			cTotalUpstreamArea->PutVal(iDrainageID, m_cArea->rValue(i));
-		else
-			cTotalUpstreamArea->PutVal(iDrainageID, rUNDEF);*/
-
-		//cLongestFlowLength->PutVal(iDrainageID, colFlowLength->rValue(i));
-
-	//}
-
-
-		_outputTable->setCell(_outCatchmentRaster->primaryKey(), record, QVariant(record));
 	}
 
-//	m_vvUpstreamLinks.resize(0);
 }
 
 
@@ -778,18 +754,15 @@ void MapCatchmentExtraction::ComputeCenterDrainage()
 	std::vector<QVariant> colUpstreamLink = tblAtt->column(sUpstreamLink);
 	std::vector<QVariant> colLength = tblAtt->column(QString("Length"));
 
-	std::vector<QVariant> colPrimaryKey = tblAtt->column(_inDrngOrderRaster->primaryKey());
-
-
 	ICoordinateDomain crddom;
 	crddom.prepare();
 	crddom->setCoordinateSystem(_csy);
 	_outputTable->addColumn("CenterDrainage", crddom);
 
-	long iSize = colPrimaryKey.size();
+	long iSize = tblAtt->recordCount();
 	for (long i = 0; i < iSize; i++)
 	{
-		long iDrainageID = colPrimaryKey[i].toInt();
+		long iDrainageID = i;
 		if (iDrainageID == iUNDEF )
 			continue;
 
