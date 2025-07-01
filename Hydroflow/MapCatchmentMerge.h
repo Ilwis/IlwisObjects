@@ -76,6 +76,7 @@ namespace Ilwis {
 			void CreateTable();
 			void AddLink2StreamSegments();
 			void InitOutletVector();
+			void InitJointOutletVector();
 			Pixel CoordinateStringToPixel(QString coordStr);
 			bool IsEdgeCell(Pixel pxl);
 			bool fRelocatOutlet(Pixel& pxl, int);
@@ -122,6 +123,7 @@ namespace Ilwis {
 			void CreateTableSegmentsExtracted();
 			std::vector<long> GetSegmentIDsExtracted(int iCatch);
 			void CreatePolygonTableElements();
+			bool croppingStreamFlowPathPoint(int catchmentid, Coordinate crd);
 		protected:
 			void InitInOutMaps();
 
@@ -155,6 +157,7 @@ namespace Ilwis {
 			std::vector<Coordinate> m_vStream;
 			std::vector<OutletLocation> m_vOutlet;
 			std::vector<byte> m_vFlowSelf;
+			std::vector<std::vector<int>> m_extractedsegids;
 
 			std::map<const geos::geom::Geometry*, int> lsidmap;
 
