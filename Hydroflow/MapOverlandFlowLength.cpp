@@ -214,13 +214,12 @@ bool MapOverlandFlowLength::executeLandFlowLength()
 	std::vector<QVariant> colUpstreamID;
 	colUpstreamID = tblDrnAtt->column(sUpstreamID);
 
-	std::vector<QVariant> colStreamID = tblDrnAtt->column(_inDrainRaster->primaryKey());
-	long iSize = colStreamID.size();
+	long iSize = tblDrnAtt->recordCount();
 
 	InitFlowNums(m_vReceiveNum);
 
 	for (long i = 0; i < iSize; i++) {
-		long iDrainageID = colStreamID[i].toInt()+1;
+		long iDrainageID = i + 1;
 		if (iDrainageID == iUNDEF)
 			continue;
 
