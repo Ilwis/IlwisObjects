@@ -49,6 +49,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "projection.h"
 #include "proj4parameters.h"
 #include "conventionalcoordinatesystem.h"
+#include "locker.h"
 
 using namespace Ilwis;
 using namespace Gdal;
@@ -472,23 +473,6 @@ void RasterCoverageConnector::setColorValues(GDALColorInterp colorType, std::vec
     }
 }
 
-void RasterCoverageConnector::readData(UPGrid& grid, GDALRasterBandH layerHandle, int inLayerBlockIndex, quint32 linesPerBlock, char *block, quint64 linesLeft) const
-{
-    CPLErr err;
-    if ( linesLeft > linesPerBlock)
-        err = gdal()->rasterIO(layerHandle,GF_Read,0,inLayerBlockIndex * linesPerBlock,grid->size().xsize(), linesPerBlock,
-                         block,grid->size().xsize(), linesPerBlock,_gdalValueType,0,0 );
-    else {
-        err = gdal()->rasterIO(layerHandle,GF_Read,0,inLayerBlockIndex * linesPerBlock,grid->size().xsize(), linesLeft,
-                         block,grid->size().xsize(), linesLeft,_gdalValueType,0,0 );
-    }
-    if ( err != CE_None){
-        QString message( gdal()->getLastErrorMsg());
-        if ( message != "")
-            kernel()->issues()->log("GDAL error :"+  message, IssueObject::itWarning);
-    }
-}
-
 bool RasterCoverageConnector::moveIndexes(quint32& linesPerBlock, quint64& linesLeft, int& inLayerBlockIndex)
 {
     ++inLayerBlockIndex;
@@ -499,141 +483,159 @@ bool RasterCoverageConnector::moveIndexes(quint32& linesPerBlock, quint64& lines
     return true;
 }
 
+double Ilwis::Gdal::RasterCoverageConnector::getNoDataValue(GDALRasterBandH layerHandle) const
+{
+    double nodata;
+    if (sourceRef().hasProperty("undefined")) {
+        nodata = sourceRef()["undefined"].toDouble();
+    }
+    else {
+        int ok;
+        nodata = gdal()->getUndefinedValue(layerHandle, &ok);
+        if (ok == 0)
+            nodata = rUNDEF;
+    }
+    return nodata;
+}
+
+void Ilwis::Gdal::RasterCoverageConnector::getData(quint32 bandIndex, RasterCoverage *raster,  quint32 y,char *block)
+{
+    UPGrid& grid = raster->gridRef();
+    auto layerHandle = gdal()->getRasterBand(_handle->handle(), bandIndex + 1);
+    auto normalizedY = int((y / grid->blockCacheLimit())) * grid->blockCacheLimit();
+    auto linesPerBlock = grid->linesPerBlock(y);
+    if ( _colorModel == ColorRangeBase::cmNONE || raster->datadef().domain()->valueType() == itPALETTECOLOR){ // palette entries are just integers so we can use the numeric read for it
+        loadNumericBlock(normalizedY, linesPerBlock, block, raster,bandIndex);
+    }else { // continous colorcase, combining 3/4 (gdal)layers into one
+        loadColorBlock(bandIndex,normalizedY, linesPerBlock, block, raster);
+    }
+}
+
+quint32 RasterCoverageConnector::noOfItems(const UPGrid& grid) {
+    return _typeSize *  grid->size().xsize();
+}
+
 bool RasterCoverageConnector::loadData(IlwisObject* data, const IOOptions& options ){
+    Locker<> lock(_mutex);
 	if (!getHandle(data)) {
 		return false;
 	}
-    quint32 bandindex = sourceRef().hasProperty("bandindex") ? sourceRef()["bandindex"].toUInt(): iUNDEF;
-    auto layerHandle = gdal()->getRasterBand(_handle->handle(), bandindex != iUNDEF ? bandindex + 1 : 1);
+    RasterCoverage *raster = static_cast<RasterCoverage *>(data);
+    UPGrid& grid = raster->gridRef();
+
+    quint32 y = options.contains("y") ? options["y"].toUInt(): 0;
+    auto o = options.contains("orientation") ? options["orientation"].toString(): "XYZ";
+    Grid::Orientation orientation = o == "XYZ" ? Grid::oXYZ : Grid::oZXY;
+
+    quint32 linesPerBlock = grid->linesPerBlock(y);
+    if (sourceRef().hasProperty("scale"))
+    {
+        _offsetScales.resize(1);
+        _offsetScales[0].offset = sourceRef()["offset"].toDouble();
+        _offsetScales[0].scale = sourceRef()["scale"].toDouble();
+    }
+
+    if (sourceRef().hasProperty("colormodel")) {
+        QString cmodel = sourceRef()["colormodel"].toString();
+        if (cmodel == "rgba") {
+            _colorModel = ColorRangeBase::cmRGBA;
+            _gdalValueType = GDT_Byte;
+            _typeSize = 1;
+        }
+        else if (cmodel == "hsla") {
+            _colorModel = ColorRangeBase::cmHSLA;
+            _gdalValueType = GDT_Byte;
+            _typeSize = 1;
+        } if (cmodel == "cmyka")
+            _colorModel = ColorRangeBase::cmCYMKA;
+    }
+    quint32 bandindex = options.contains("z") ? options["z"].toUInt(): 0;
+    auto layerHandle = gdal()->getRasterBand(_handle->handle(), bandindex + 1);
     if (!layerHandle) {
         ERROR2(ERR_COULD_NOT_LOAD_2, "GDAL","layer");
         return false;
     }
-    RasterCoverage *raster = static_cast<RasterCoverage *>(data);
-	if (sourceRef().hasProperty("scale"))
-	{
-		_offsetScales.resize(1);
-		_offsetScales[0].offset = sourceRef()["offset"].toDouble();
-		_offsetScales[0].scale = sourceRef()["scale"].toDouble();
-	}
 
-	if (sourceRef().hasProperty("colormodel")) {
-		QString cmodel = sourceRef()["colormodel"].toString();
-		if (cmodel == "rgba") {
-			_colorModel = ColorRangeBase::cmRGBA;
-			_gdalValueType = GDT_Byte;
-			_typeSize = 1;
-		}
-		else if (cmodel == "hsla") {
-			_colorModel = ColorRangeBase::cmHSLA;
-			_gdalValueType = GDT_Byte;
-			_typeSize = 1;
-		} if (cmodel == "cmyka")
-			_colorModel = ColorRangeBase::cmCYMKA;
-	}
 
-    UPGrid& grid = raster->gridRef();
-
-    quint32 linesPerBlock = grid->maxLines();
-    qint64 blockSizeBytes = grid->blockSize(0) * _typeSize;
-    char *block = new char[blockSizeBytes];
-    quint64 totalLines =grid->size().ysize();
-    std::map<quint32, std::vector<quint32> > blocklimits;
-
-    //blocklimits; key = band number, value= blocks needed from this band
-    if ( bandindex == iUNDEF)
-        blocklimits = grid->calcBlockLimits(options);
-    else{
-        for(int i = 0; i < std::ceil((double)totalLines / linesPerBlock); ++i)
-            blocklimits[bandindex].push_back(i);
+    char *block;
+    if ( orientation == Grid::oXYZ){
+        qint64 blockSizeBytes = linesPerBlock * noOfItems(grid);
+        block = new char[blockSizeBytes];
+        getData(bandindex, raster, y, block);
+    }else{ // ZXY
+        qint64 blockSizeBytes = linesPerBlock * noOfItems(grid);
+        //char *bandblock = new char[blockSizeBytes];
+        block = new char[blockSizeBytes * grid->size().zsize()];
+        getData(iUNDEF, raster, y, block);
     }
 
-	double nodata;
-	if (sourceRef().hasProperty("undefined")) {
-		nodata = sourceRef()["undefined"].toDouble();
-	}
-	else {
-		int ok;
-		nodata = gdal()->getUndefinedValue(layerHandle, &ok);
-		if (ok == 0)
-			nodata = rUNDEF;
-	}
-
-    for(const auto& layer : blocklimits){
-        int inLayerBlockIndex = layer.second[0] % grid->blocksPerBand(); //
-        quint64 linesLeft = totalLines - grid->maxLines() * inLayerBlockIndex; //std::min((quint64)grid->maxLines(), totalLines - grid->maxLines() * layer.second[0]);
-        if ( _colorModel == ColorRangeBase::cmNONE || raster->datadef().domain()->valueType() == itPALETTECOLOR){ // palette entries are just integers so we can use the numeric read for it
-            layerHandle = gdal()->getRasterBand(_handle->handle(), layer.first + 1);
-            for(const auto& index : layer.second) {
-                quint32 offsetIndex = bandindex == iUNDEF ? layer.first : (layer.first - bandindex);
-                loadNumericBlock(layerHandle, index, inLayerBlockIndex, linesPerBlock, linesLeft, block, raster,offsetIndex, nodata );
-                if(!moveIndexes(linesPerBlock, linesLeft, inLayerBlockIndex))
-                    break;
-            }
-        }else { // continous colorcase, combining 3/4 (gdal)layers into one
-            for(const auto& index : layer.second) {
-                loadColorBlock(layer.first,index,inLayerBlockIndex,linesPerBlock,linesLeft,block,grid);
-                if(!moveIndexes(linesPerBlock, linesLeft, inLayerBlockIndex)) // ensures that the administration with respect how much needs to be done is inorder
-                    break;
-            }
-        }
-    }
 
     delete [] block;
     _binaryIsLoaded = true;
     return true;
 }
 
-void RasterCoverageConnector::loadColorBlock(quint32 ilwisLayer, quint32 index, quint32 inLayerBlockIndex, quint32 linesPerBlock, quint64 linesLeft,char *block, UPGrid& grid) const{
+void RasterCoverageConnector::loadColorBlock(quint32 bandIndex, quint32 yNormalized, quint32 linesPerBlock,char *block, RasterCoverage *raster) const{
     std::vector<double> values;
     // ilwis color layers consist of 3 or 4 gdal layers
+    UPGrid& grid = raster->gridRef();
     quint32 noOfComponents = _hasTransparency ? 4 : 3; // do we have a transparency layer?
     for( int component = 0; component < noOfComponents ; ++component){
-        auto layerHandle = gdal()->getRasterBand(_handle->handle(), noOfComponents * ilwisLayer + component + 1);
+        auto layerHandle = gdal()->getRasterBand(_handle->handle(), noOfComponents * bandIndex + component + 1);
         GDALColorInterp colorType = gdal()->colorInterpretation(layerHandle);
-        readData(grid, layerHandle, inLayerBlockIndex, linesPerBlock, block, linesLeft);
+        CPLErr err = gdal()->rasterIO(layerHandle,GF_Read,0, yNormalized ,grid->size().xsize(), linesPerBlock,
+                         block,grid->size().xsize(), linesPerBlock,_gdalValueType,0,0 );
 
-        quint32 noItems = grid->blockSize(index);
+        quint32 noItems = linesPerBlock * grid->size().xsize();
         if ( noItems == iUNDEF)
             return ;
         if ( values.size() == 0)
             values.resize(noItems);
         setColorValues(colorType, values, noItems, block);
     }
-    grid->setBlockData(index, values);
+    grid->setBlockData(bandIndex, yNormalized, values);
 }
 
-void RasterCoverageConnector::loadNumericBlock(GDALRasterBandH layerHandle,
-                                               quint32 index,
-                                               quint32 inLayerBlockIndex,
+void RasterCoverageConnector::loadNumericBlock( quint32 yNormalized,
                                                quint32 linesPerBlock,
-                                               quint64 linesLeft,
                                                char *block, RasterCoverage *raster,
-                                               int bandIndex, double nodata) const {
+                                               int bandIndex) const {
     UPGrid& grid = raster->gridRef();
-    readData(grid, layerHandle, inLayerBlockIndex, linesPerBlock, block, linesLeft);
-    
-    quint32 noItems = grid->blockSize(index);
-    if ( noItems == iUNDEF)
-        return ;
-    std::vector<double> values(noItems, rUNDEF);
-    if (bandIndex < _offsetScales.size()) {
-        bool hasScaleOffset = _offsetScales[bandIndex].offset != rUNDEF && _offsetScales[bandIndex].scale != rUNDEF;
-        for (quint32 i = 0; i < noItems; ++i) {
-            double v = value(block, i);
-            if (std::isnan(v) || std::isinf(v))
-                continue;
+    int maxBands = bandIndex + 1;
+    int startBand = bandIndex;
+    if ( bandIndex == iUNDEF){
+        maxBands = grid->size().zsize();
+        startBand = 0;
+    }
+    quint32 noItems = linesPerBlock * grid->size().xsize();
+    std::vector<double> values(noItems * (maxBands - startBand + 1), rUNDEF);
+    quint64 offset = 0;
+    for(int b = startBand; b < maxBands; ++b){
+        auto layerHandle = gdal()->getRasterBand(_handle->handle(), b + 1);
+        auto nodata = getNoDataValue(layerHandle);
+        CPLErr err = gdal()->rasterIO(layerHandle,GF_Read,0, yNormalized ,grid->size().xsize(), linesPerBlock,
+                         block,grid->size().xsize(), linesPerBlock,_gdalValueType,0,0 );
 
-            if (hasScaleOffset)
-                v = v * _offsetScales[bandIndex].scale + _offsetScales[bandIndex].offset;
 
-            if (nodata == rUNDEF)
-                values[i] = v;
-            else
-                values[i] =nodata == v ? rUNDEF : v;
-        }
-    } // else we are trying to read beyond the available data, perhaps because a new band was added; just return the undef block
-    grid->setBlockData(index, values);
+        if (b < _offsetScales.size()) {
+            bool hasScaleOffset = _offsetScales[b].offset != rUNDEF && _offsetScales[b].scale != rUNDEF;
+            for (quint32 i = 0; i < noItems; ++i) {
+                double v = value(block, i);
+                if (std::isnan(v) || std::isinf(v))
+                    continue;
+
+                if (hasScaleOffset)
+                    v = v * _offsetScales[b].scale + _offsetScales[b].offset;
+
+                if (nodata == rUNDEF)
+                    values[i] = v;
+                else
+                    values[i + offset] =nodata == v ? rUNDEF : v;
+            }
+        } // else we are trying to read beyond the available data, perhaps because a new band was added; just return the undef block
+        offset += noItems;
+    }
+    grid->setBlockData(bandIndex, yNormalized, values);
 }
 
 bool RasterCoverageConnector::setGeotransform(RasterCoverage *raster,GDALDatasetH dataset) {

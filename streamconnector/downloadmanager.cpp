@@ -63,13 +63,13 @@ std::vector<Resource> DownloadManager::loadItems(){
 }
 
 bool DownloadManager::loadData(IlwisObject *object, const IOOptions &options){
-    QUrl url = _resource.url(true);
+ /*   QUrl url = _resource.url(true);
 
     QUrlQuery query(url);
     if ( object->ilwisType() == itRASTER){
         RasterCoverage *raster = static_cast<RasterCoverage*>(object);
         _blockSizeBytes = raster->grid()->blockSize(0);
-        if ( options.contains("blockindex")){
+     if ( options.contains("blockindex")){
             _currentBlock = options["blockindex"].toInt();
             int layer = _currentBlock / raster->grid()->blocksPerBand();
             int relativeBlock = _currentBlock - layer * raster->grid()->blocksPerBand();
@@ -82,7 +82,7 @@ bool DownloadManager::loadData(IlwisObject *object, const IOOptions &options){
     url.setQuery(query);
     QString urltxt = url.toString();
     _object = object;
-  /*  QNetworkRequest request(url);
+    QNetworkRequest request(url);
 
     QNetworkReply *reply = kernel()->network().get(request);
 

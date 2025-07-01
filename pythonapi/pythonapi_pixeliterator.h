@@ -16,7 +16,7 @@ namespace pythonapi {
 #endif
 
 struct FlowVal{
-    enum Value{ XYZ, YXZ, XZY, YZX, ZXY, ZYX};
+    enum Value{ XYZ, ZXY};
 };
 
 typedef FlowVal::Value Flow;

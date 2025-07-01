@@ -113,5 +113,5 @@ https://www.itc.nl/about-itc/scientific-departments/water-resources/software-too
 
 ## What's new
 
-https://filetransfer.itc.nl/pub/52n/ilwis_py/wheels/whatsnew.txt
+https://filetransfer.itc.nl/pub/52n/ilwis_py/whatsnew.txt
 

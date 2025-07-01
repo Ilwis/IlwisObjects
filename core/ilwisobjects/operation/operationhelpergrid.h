@@ -24,7 +24,7 @@ class Parameter;
 
 class KERNELSHARED_EXPORT ProcessingBoundingBoxes{
 public:
-    ProcessingBoundingBoxes(const IRasterCoverage& raster);
+    ProcessingBoundingBoxes(const std::vector<Ilwis::IRasterCoverage> &rasters, int maxThreads);
     ProcessingBoundingBoxes() : _maxThreads(1){}
 
     void sizeBoxesVector(int maxThreads);
@@ -51,7 +51,7 @@ public:
 	static bool addGrfFromInput(const RasterCoverage* cov, Resource& resource);
 
     template<typename T> static bool execute(ExecutionContext* ctx, T func, const std::vector<IRasterCoverage>& rasters) {
-        ProcessingBoundingBoxes boxes;
+
 
 		auto outputRaster = rasters.back(); // last entry is always the output raster and determines the core use.
 		if (!outputRaster.isValid())
@@ -60,11 +60,12 @@ public:
         bool res = true;
 		if (ctx->_threaded) {
 			cores = QThread::idealThreadCount();
-			int prefCount = outputRaster->grid()->blocks() / 2 + 1;
+            int prefCount = outputRaster->grid()->blocksCount() / 2 + 1;
 			if (prefCount < cores) {
 				cores = prefCount;
 			}
-
+            cores = 2; // test
+            ProcessingBoundingBoxes boxes(rasters, cores);
 
 			for (auto raster : rasters) {
 				if (raster.isValid()) {
@@ -84,7 +85,7 @@ public:
                  raster->gridRef()->unprepare4Operation();
 		}
 		else {
-            boxes = ProcessingBoundingBoxes(outputRaster);
+            auto boxes = ProcessingBoundingBoxes({outputRaster}, 1);
             res = func(boxes,0);
 		}
 

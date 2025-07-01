@@ -51,7 +51,7 @@ bool InternalRasterCoverageConnector::loadMetaData(IlwisObject *data, const IOOp
 }
 
 bool InternalRasterCoverageConnector::loadData(IlwisObject *, const IOOptions &){
-    return true;
+    return false;
 }
 
 QString Ilwis::Internal::InternalRasterCoverageConnector::provider() const

@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include <QDir>
 #include <QTemporaryFile>
 #include <iostream>
+#include <deque>
 #include "kernel.h"
 #include "errorobject.h"
 #include "size.h"
@@ -32,126 +33,87 @@ namespace Ilwis {
 class RasterCoverage;
 class IOOptions;
 
-struct GridBlockNrPair {
-    GridBlockNrPair(Grid *grid, quint32 bnr) : _blocknr(bnr), _grid(grid){}
 
-    quint32 _blocknr = 0;
-    Grid *_grid = 0;
-};
-
-inline bool operator==(const GridBlockNrPair& gbp1, const GridBlockNrPair& gbp2){
-    return gbp1._blocknr == gbp2._blocknr && gbp1._grid == gbp2._grid;
-}
-
-struct CacheEntry{
-    std::vector<GridBlockNrPair> _cacheBlocks;
-    QFile *_cacheFile = 0;
-};
-
-class GridBlockInternal {
-public:
-    GridBlockInternal(Grid *parentGrid, quint32 blocknr, quint32 lines , quint32 width);
-    ~GridBlockInternal();
-
-
-    Size<> size() const ;
-    GridBlockInternal *clone(Grid *newParentGrid);
-
-    PIXVALUETYPE& at(quint32 index) {
-        if ( index < _blockSize){
-            if (!_inMemory) {
-                init();
-                loadDiskDataToMemory();
-            }
-            return _data[index];
-        } else
-            return _undef;
-    }
-
-    char *blockAsMemory();
-    void fill(const std::vector<PIXVALUETYPE>& values);
-    quint32 blockSize();
-    bool inMemory() const { return _inMemory; }
-    inline bool save2Cache() ;
-    void dispose();
-    void init();
-    void loadDiskDataToMemory();
-    quint64 blockNr();
-
-private:
-    bool loadFromCache();
-    void fetchFromSource();
-    std::recursive_mutex _mutex;
-    std::vector<PIXVALUETYPE> _data;
-    PIXVALUETYPE _undef;
-    Size<> _size;
-    quint64 _id;
-    bool _inMemory = false;
-    bool _dataLoadedFromSource = false;
-    quint64 _blockSize;
-    Grid *_parentGrid;
-    quint64 _seekPosition = i64UNDEF;
-};
+typedef std::vector<std::vector<double>> Plane;
 
 class KERNELSHARED_EXPORT Grid
 
 {
 public:
-    friend class GridBlockInternal;
+    typedef std::vector<std::vector<double>> Plane;
+    enum Orientation {oXYZ, oZXY};
+    friend class PixelIterator;
+    friend class GridBlock;
 
-    Grid(int maxLines=iUNDEF);
+    Grid(Orientation ori=oXYZ);
     virtual ~Grid();
 
     void clear();
 
-    PIXVALUETYPE& value(quint32 block, int offset, int threadIndex = 0);
-    PIXVALUETYPE value(const Pixel& pix, int threadIndex = 0) ;
-    void setValue(quint32 block, int offset, PIXVALUETYPE v );
 
-    quint32 blocks() const;
-    quint32 blocksPerBand() const;
+    PIXVALUETYPE &valueRef(const Pixel& pix, int threadIndex = 0);
+    PIXVALUETYPE value(const Pixel& pix, int threadIndex = 0);
+    void setValue(int z, int y, int x, PIXVALUETYPE v , int threadIndex=0);
+    void setOrientation(Grid::Orientation ori);
 
-    void setBlockData(quint32 block, const std::vector<PIXVALUETYPE>& data);
-    char *blockAsMemory(quint32 block);
-    void setBandProperties(RasterCoverage *raster, int n);
+    void setBlockData(int d1, int d2, const std::vector<PIXVALUETYPE>& data);
     bool prepare(quint64 rasterid, const Size<> &sz) ;
-    quint32 blockSize(quint32 index) const;
     Size<> size() const;
-    int maxLines() const;
-    Grid * clone(quint64 newRasterId, quint32 index1=iUNDEF, quint32 index2=iUNDEF) ;
-    void unload(bool uselock=true);
-    std::map<quint32, std::vector<quint32> > calcBlockLimits(const IOOptions &options);
+    Grid * clone(quint64 newRasterId, int index1=iUNDEF, int index2=iUNDEF) ;
+    void unload(int threadIndex=0);
     bool isValid() const;
-    qint64 memUsed() const;
-	void resetBlocksPerBand(quint64 rasterid, quint32 blockCount, int maxlines);
+    quint32 linesPerBlock(int y) const;
+    quint32 blocksCount() const;
+    quint64 blockSize(int d) const;
+    void setd3Size(int d1, int d2, int d3sz);
 
-    //debug
-    PIXVALUETYPE findBigger(PIXVALUETYPE v);
-	void prepare4Operation(int nThreads);
-	void unprepare4Operation();
+    void prepare4Operation(int nThreads);
+    void unprepare4Operation();
+    quint32 blockCacheLimit() const;
+    void useCache(bool yesno);
+
+
 protected:
 
 private:
-    int numberOfBlocks();
-    inline bool update(quint32 block, bool loadDiskData, int threadIndex = 0);
-    void unloadInternal();
-    void setBlock(int index,GridBlockInternal *block);
-    bool save2cache(int cacheNr, quint64 seekPosition, char *dataBlock, quint64 bytesNeeded);
-    bool loadFromCache(int cacheNr, quint64 seekPosition, char *dataBlock, quint64 bytesNeeded);
-    bool createCacheFile(int i);
+    struct BlockStatus{
+        bool _valid = false;
+        bool _loadedFromSource = false;
+    };
+    typedef std::vector<std::deque<quint64>> PlaneBlockCache;
 
+    void dumpBlock(int z, int y, int x, int threadIndex);
+    bool createCacheFile(int i);
+    //void getBlockData(int d1, int d2, std::vector<PIXVALUETYPE>& data);
+    PIXVALUETYPE& value(int d1, int d2, int d3, int threadIndex = 0); //d1=z,d2=y,d3=x (XYZ) or d1=y, d2=x, d3=z (ZXY)
+    void setBlockDataZXY(int z, int y, const std::vector<PIXVALUETYPE>& data);
+    void setBlockDataXYZ(int z, int y, const std::vector<PIXVALUETYPE>& data);
+    const BlockStatus& blockStatus(int z, int y) const;
+    quint64 seekPosition(int z, int y, int x) const;
+    quint32 normY(int y) const;
+    void loadFromSource(int z, int x, int y)    ;
+    bool pastHorizon(quint32 v) const ;
+    void closure();
+    void dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) ;
+    void load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex);
+
+    const unsigned int BLOCKYHORIZON = 4;
+    const unsigned int BLOCKXHORIZON = 8;
+    std::vector<Plane> _planes;
+    std::vector<std::vector<BlockStatus>> _validStripe;
     std::recursive_mutex _mutex;
-    std::vector< GridBlockInternal *> _blocks;
-    std::vector<CacheEntry> _cache;
-    quint32 _maxCacheBlocks;
-    qint64 _memUsed;
-    quint32 _blocksPerBand;
-    std::vector<quint32> _blockSizes;
     Size<> _size;
-    quint32 _maxLines;
-    std::vector<quint32> _blockOffsets;
-    quint64 _gridid = i64UNDEF;
+    Orientation _orientation;
     quint64 _rasterid;
+    std::vector<QFile*> _diskImages;
+    std::vector<QString> _imageNames;
+    const quint32 XYZYBLOCKS = 100;
+    const quint32 ZXYYBLOCKS = 8;
+    bool _useCache = true;
+
+    void loadFromCache(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex);
+    void setBlockStatus(unsigned int z1, quint64 blockNr, bool status);
+    quint64 calcSeekPosition(unsigned int z, unsigned int y ) const;
 };
 
 typedef std::unique_ptr<Grid> UPGrid;

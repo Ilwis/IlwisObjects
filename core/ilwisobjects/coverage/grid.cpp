@@ -22,500 +22,373 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 
 using namespace Ilwis;
 
-
-GridBlockInternal::GridBlockInternal(Grid *parentGrid, quint32 blocknr,quint32 lines , quint32 width) :  _undef(undef<PIXVALUETYPE>()), _size(Size<>(width, lines,1)), _id(blocknr)
-{
-    _blockSize = _size.xsize()* _size.ysize();
-    _parentGrid = parentGrid;
-}
-
-GridBlockInternal::~GridBlockInternal()
-{
-
-}
-
-Size<> GridBlockInternal::size() const
-{
-    return _size;
-}
-
-GridBlockInternal *GridBlockInternal::clone(Grid *newParentGrid)
-{
-
-    GridBlockInternal *block = new GridBlockInternal(newParentGrid, blockNr(), _size.ysize(), _size.xsize());
-    block->init();
-    std::copy(_data.begin(), _data.end(), block->_data.begin());
-    block->_inMemory = true;
-    block->save2Cache(); // as a result, block->_inMemory becomes false
-    return block;
-}
-
-char *GridBlockInternal::blockAsMemory()
-{
-    return (char *)&_data[0];
-}
-
-void GridBlockInternal::fill(const std::vector<PIXVALUETYPE>& values)
-{
-    copy(values.begin(), values.end(), _data.begin());
-    _inMemory = true;
-}
-
-quint32 GridBlockInternal::blockSize() {
-    return _blockSize;
-}
-
-/**
- * @brief GridBlockInternal::save2Cache
- * Saves the content to disk-cache and unloads the gridblock from memory
- * @return true if successful
+/*
+ * The planes member, a 3D nested set of vectors, contains the 'real' data. It is structured differently for the XYZ flow and the ZXY flow
+ * the XYZ flow is structured planes[zsize][ysize][xsize], the ZXY flow planes[ysize][zsize][xsize]. The amount of data actually loaded in
+ * these vectors is limited. For XYZ a block like planes[ZIndex][YLower ... YUpper][0..XMAX]. The moment y passes YUpper,
+ * planes[ZIndex][YLower ... YUpper][0..XMAX] will be written as block to the cache file and the memory occuppied by that block is freed.
+ * Whenever it is needed it can be very quickly reloaded as it is a simple dump of memory
  */
-
-bool GridBlockInternal::save2Cache() {
-    if (!_inMemory) // nothing to do
-        return true;
-    Locker<> lock(_mutex);
-    quint64 bytesNeeded = _data.size() * sizeof(PIXVALUETYPE);
-    _seekPosition = _id * _parentGrid->_blockSizes[0] * sizeof(PIXVALUETYPE);
-    if (!_parentGrid->save2cache(0, _seekPosition, (char *)&_data[0], bytesNeeded)){
-        QString f = _parentGrid->_cache[0]._cacheFile->fileName();
-        return ERROR1(ERR_COULD_NOT_OPEN_WRITING_1,QString("cache file ") + f);
-    }
-    _inMemory = false;
-    _data = std::vector<PIXVALUETYPE>();
-    _dataLoadedFromSource = true; // apparently we have loaded the data from source and no longer need the source
-	
-    return true;
-}
-
-/**
- * @brief GridBlockInternal::loadDiskDataToMemory
- * Loads the content of _data from either the cache file or the original source (in that order of preference)
- */
-
-void GridBlockInternal::loadDiskDataToMemory()
-{
-    if (_dataLoadedFromSource )
-        loadFromCache();
-    else{
-        fetchFromSource();
-        _dataLoadedFromSource = true;
-    }
-
-    _inMemory = true;
-}
-
-quint64 GridBlockInternal::blockNr()
-{
-    return _id;
-}
-
-/**
- * @brief GridBlockInternal::init
- * Allocates the data array
- */
-
-void GridBlockInternal::init() {
-    if (!_inMemory) {
-        Locker<> lock(_mutex);
-        try{
-        _data.resize(blockSize(), _undef);
-        _inMemory = true;
-        } catch(const std::bad_alloc& ) {
-            qDebug() << "err mem ";
-            throw OutOfMemoryError( TR("Couldnt allocate memory for raster"), false);
-        }
-    }
-}
-
-/**
- * @brief GridBlockInternal::loadFromCache
- * Loads the _data array from disk if it is available, otherwise fills it with _undef values
- * @return true if successful
- */
-
-bool GridBlockInternal::loadFromCache() {
-    if ( !_inMemory && !_dataLoadedFromSource) {
-        std::fill(_data.begin(), _data.end(), _undef);
-        return true; // totaly new block; never been swapped so no load needed
-    }
-    quint64 bytesNeeded = _data.size() * sizeof(PIXVALUETYPE);
-    if (!_parentGrid->loadFromCache(0, _seekPosition, (char *)&_data[0], bytesNeeded)){
-        QString f = _parentGrid->_cache[0]._cacheFile->fileName();
-        return ERROR1(ERR_COULD_NOT_OPEN_READING_1,QString("cache file ") + f);
-    }
-
-    return true;
-}
-
-/**
- * @brief GridBlockInternal::fetchFromSource
- * Instructs the rastercoverage to "push" its data to the grid, through setBlockData() calls
- */
-
-void GridBlockInternal::fetchFromSource()
-{
-    IIlwisObject obj = mastercatalog()->get(_parentGrid->_rasterid);
-    if ( obj.isValid()){
-        IRasterCoverage raster = obj.as<RasterCoverage>();
-        raster->getData(_id);
-    }
-}
-
-
-
-/**
- * @brief GridBlockInternal::disposequint64 newRasterId
- * Cleans up the memory content, without saving it to cache; practically the opposite of init()
- */
-
-void GridBlockInternal::dispose()
-{
-    _data = std::vector<PIXVALUETYPE>();
-    _inMemory = false;
-}
-
 //----------------------------------------------------------------------
 
-Grid::Grid(int maxlines) : _maxCacheBlocks(1), _memUsed(0),_blocksPerBand(0), _maxLines(maxlines) {
-    //Locker lock(_mutex);
-    if ( _maxLines == iUNDEF){
-        _maxLines =  context()->configurationRef()("system-settings/grid-blocksize", 500);
-         if ( _maxLines > 1 && (_maxLines * size().xsize() * 8 > 1e7)) {
-            _maxLines = max(1, 1e7 / (size().xsize() * 8));
-         }
-    }
-	_cache.resize(1);
-    _gridid = Identity::newAnonymousId();
+Grid::Grid(Orientation ori) : _orientation(ori), _rasterid(i64UNDEF)  {
 }
 
-quint32 Grid::blockSize(quint32 index) const {
-    if ( index < _blockSizes.size() )
-        return _blockSizes[index];
-    return iUNDEF;
-}
 
 Grid::~Grid() {
     clear();
-    context()->changeMemoryLeft(_memUsed);
-   // qDebug() << "grid deleted:" << this;
+
 }
 
 Size<> Grid::size() const {
     return _size;
 }
 
-int Grid::maxLines() const
-{
-    return _maxLines;
-}
 
-Grid *Grid::clone(quint64 newRasterId, quint32 index1, quint32 index2)
+Grid *Grid::clone(quint64 newRasterId, int dLimit1, int dLimit2)
 {
     Locker<> lock(_mutex);
-    if ( index2 < index1){
-        ERROR2(ERR_INVALID_INIT_FOR_2,TR("grid limits"),TR("clone grid"));
-        return 0;
-    }
-    quint32 start = index1 == iUNDEF ? 0 : index1;
-    quint32 end = index2 == iUNDEF ? (quint32)_blocks.size() / _blocksPerBand : index2 + 1;
-
-    Grid *grid = new Grid(_maxLines);
+    quint32 start = dLimit1 == iUNDEF ? 0 : dLimit1;
+    quint32 end = dLimit2 == iUNDEF ? (_orientation == oXYZ ? _size.zsize() : _size.xsize()) : dLimit2 + 1;
+    Grid *grid = new Grid(_orientation);
     grid->prepare(newRasterId,Size<>(_size.xsize(), _size.ysize(), end - start));
-
-    quint32 startBlock = start * _blocksPerBand;
-    quint32 endBlock = std::min(end * _blocksPerBand, (quint32)_blocks.size());
-    for(int i=startBlock, j=0; i < endBlock; ++i, ++j) {
-
-        if (!_blocks[i]->inMemory()) {
-            update(i, true);
-        }
-        auto b = _blocks[i]->clone(grid);
-        grid->setBlock(j, b);
-    }
-    return grid;
-}
-
-void Grid::clear() {
-    _size = Size<>();
-    _blockSizes = std::vector<quint32>();
-    int next = true;
-    if ( _cache.size() > 0){
-        while(next ){
-            next = false; // next will become true again af a next iteration is needed
-            for(int i=0; i < _cache[0]._cacheBlocks.size(); ++i){
-                if (_cache[0]._cacheBlocks[i]._grid == this){
-                    _cache[0]._cacheBlocks.erase(_cache[0]._cacheBlocks.begin() + i);
-                    next = true;
-                    break;
-                }
+    grid->_validStripe = _validStripe;
+    grid->_useCache = _useCache;
+    if ( _orientation == oXYZ){
+        grid->_planes.resize(_size.zsize());
+        for(quint32 z = start;  z < end; ++z) {
+            grid->_planes[z] = std::vector<std::vector<double>>(_size.ysize());
+            for(quint32 y = 0; y < _size.ysize(); ++y){
+                grid->_planes[z][y] = std::vector<double>(_size.xsize());
+                for(quint32 x=0; x < _size.xsize(); ++x)
+                    grid->value(z,y,x,0) = value(z,y,x,0);
             }
         }
     }
-    for(quint32 i = 0; i < _blocks.size(); ++i)
-        delete _blocks[i];
-    _blocks = std::vector< GridBlockInternal *>();
-    _blockSizes =  std::vector<quint32>();
-    _blockOffsets = std::vector<quint32>();
+    //grid->closure();
+    return grid;
+
+}
+
+void Grid::clear() {
+    Locker<> lock(_mutex);
+    _validStripe = std::vector<std::vector<BlockStatus>>();
+    _planes = std::vector<Plane>();
+    if ( _diskImages.size() > 0){
+        for(auto *file : _diskImages){
+            file->close();
+            file->remove();
+        }
+        _diskImages = std::vector<QFile*>();
+    }
     _size = Size<>();
-    for(quint32 i=0; i < _cache.size(); ++i){
-        if (  _cache[i]._cacheFile){
-            _cache[i]._cacheFile->remove();
-            delete _cache[i]._cacheFile;
-            _cache[i]._cacheFile = 0;
+    _rasterid = iUNDEF;
+    _orientation = oXYZ;
+
+}
+
+quint64 Grid::calcSeekPosition(unsigned int z, unsigned int y ) const{
+   quint64 pos = (z * _size.xsize() * _size.ysize() + y * _size.xsize()) * sizeof(PIXVALUETYPE);
+   return pos;
+}
+
+void Grid::dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) {
+    quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
+    std::vector<char> data(dataSize);
+    for (unsigned int z = z1; z <= std::min(_size.xsize()-1, z2); ++z){
+        for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
+            quint64 seekposition = calcSeekPosition(z,y);
+            _diskImages[threadIndex]->seek(seekposition);
+            if ( _orientation == Grid::oXYZ){
+                memcpy(&data[0], _planes[z][y].data(), _size.xsize() * sizeof(PIXVALUETYPE));
+                _planes[z][y] = std::vector<double>();
+            }else {
+                memcpy(&data[0], _planes[y][z].data(), _size.xsize() * sizeof(PIXVALUETYPE));
+                 _planes[y][z] = std::vector<double>();
+            }
+            _diskImages[threadIndex]->write(&data[0], _size.xsize()*sizeof(double));
         }
     }
-    _cache = std::vector<CacheEntry >();
+    quint64 blockNr = int((y1 / blockCacheLimit()));
+    setBlockStatus(z1, blockNr, false);
 }
 
-PIXVALUETYPE Grid::value(const Pixel &pix, int threadIndex) {
-    if (pix.x <0 || pix.y < 0 || pix.x >= _size.xsize() || pix.y >= _size.ysize() )
+void Ilwis::Grid::loadFromCache(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex)
+{
+    quint64 blockNr = int((y1 / blockCacheLimit()));
+
+    quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
+    std::vector<char> data(dataSize);
+    for (unsigned int z = z1; z <= std::min(_size.zsize()-1,z2); ++z){
+        for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
+            quint64 seekposition = calcSeekPosition(z, y);
+            _diskImages[threadIndex]->seek(seekposition);
+            _diskImages[threadIndex]->read(&data[0], dataSize);
+            if ( _orientation == Grid::oXYZ){
+                if (_planes[z][y].size() != _size.xsize())
+                    _planes[z][y] = std::vector<double>(_size.xsize());
+                std::memcpy(_planes[z][y].data(), &data[0], _size.xsize() * sizeof(double));
+            }else{
+                if ( _planes[y].size() != _size.zsize())
+                    _planes[y].resize(_size.zsize());
+                if ( _planes[y][z].size() != _size.xsize())
+                    _planes[y][z] = std::vector<double>(_size.xsize());
+                std::memcpy(_planes[y][z].data(), &data[0], _size.xsize() * sizeof(double));
+            }
+        }
+    }
+    setBlockStatus(z1, blockNr, true);
+}
+
+void Ilwis::Grid::setBlockStatus( unsigned int z1, quint64 blockNr, bool status)
+{
+    if ( _orientation == oXYZ)
+        _validStripe[z1][blockNr]._valid = status;
+    else
+        _validStripe[blockNr][0]._valid = status;
+}
+
+void Grid::load(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, unsigned int x, int threadIndex){
+    quint64 blockNr = int((y1 / blockCacheLimit()));
+    IIlwisObject obj = mastercatalog()->get(_rasterid);
+    if (obj.isValid() || _imageNames.size() > 0 ) { //.is used in the clone function; an emptry grid is created without(yet) a raster belonging to it
+        if (blockStatus(z1,blockNr)._loadedFromSource && _useCache){
+                loadFromCache(y1,y2,z1, z2,  x, threadIndex);
+            }else{
+                loadFromSource(z1,x,y1);
+            }
+    }else {
+       setBlockStatus(z1, blockNr, true);
+    }
+
+
+    if ( pastHorizon(y1)){
+        dumpBlock(z1,y1,x, threadIndex);
+    }
+
+}
+
+void Ilwis::Grid::dumpBlock(int z, int y, int x, int threadIndex)
+{
+    if (_diskImages.size() <= (size_t)threadIndex && _useCache){
+        _diskImages.resize(threadIndex+1);
+        _imageNames.resize(threadIndex + 1);
+        createCacheFile(threadIndex);
+    }
+    quint32 blockNr = int(y/blockCacheLimit()) - 1;
+        auto yb = blockNr  * blockCacheLimit();
+        auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
+        if ( _orientation == Grid::oXYZ && blockStatus(z, blockNr)._valid){
+            dump(yb , yl, z, z,threadIndex);
+        }else if ( blockStatus(0, blockNr)._valid){
+            dump(yb , yl, 0, _size.zsize()-1, threadIndex);
+        }
+
+}
+
+void Grid::loadFromSource(int z1, int x, int y1){
+    IIlwisObject obj = mastercatalog()->get(_rasterid);
+    if ( obj.isValid() ){
+        quint64 blockNr = int((y1 / blockCacheLimit()));
+        IRasterCoverage raster = obj.as<RasterCoverage>();
+        IOOptions options;
+        quint64 normalizedY = blockNr * blockCacheLimit() ;
+        options.addOption({"z", z1});
+        options.addOption({"y", normalizedY});
+        options.addOption({"size", blockCacheLimit() * _size.xsize()});
+        options.addOption({"orientation", _orientation == oZXY ? "ZXY" : "XYZ"});
+        raster->getData(options);
+    }
+}
+
+PIXVALUETYPE& Grid::valueRef(const Pixel& pix, int threadIndex) {
+    quint32 z = pix.z == iUNDEF ? 0 : pix.z;
+    if (z >= 0 && z < _size.zsize() && pix.y >= 0 && pix.y < _size.ysize() && pix.x >= 0 && pix.x < _size.xsize())
+        return value(z, pix.y, pix.x, threadIndex);
+    throw ErrorObject("Pixel location out of bounds");
+}
+
+PIXVALUETYPE Grid::value(const Pixel& pix, int threadIndex) {
+    quint32 z = pix.z == iUNDEF ? 0 : pix.z;
+    if (z >= 0 && z < _size.zsize() && pix.y >= 0 && pix.y < _size.ysize() && pix.x >= 0 && pix.x < _size.xsize())
+        return value(z, pix.y, pix.x, threadIndex);
+    else
         return PIXVALUEUNDEF;
-   if ( pix.is3D() && (pix.z < 0 || pix.z >= _size.zsize()))
-        return PIXVALUEUNDEF;
-    quint32 yoff = (qint32)pix.y % _maxLines;
-    quint32 block = pix.y / _maxLines;
-    quint32 bandBlocks = _blocksPerBand * (pix.is3D() ? pix.z : 0);
-	quint32 offset = yoff * _size.xsize() + pix.x;; // _offsets[yoff][pix.x];
-    return value(bandBlocks + block, offset, threadIndex);
 }
 
-PIXVALUETYPE &Grid::value(quint32 block, int offset, int threadIndex)  {
-	//Locker<> lock(_mutex);
-    if ( _blocks[block]->inMemory() ) // no load needed
-        return _blocks[block]->at(offset);
-  //  Locker<> lock(_mutex); // slower case. must prevent other threads to messup admin
-    if ( !_blocks[block]->inMemory())
-      if(!update(block, true, threadIndex))
-          throw ErrorObject(TR("Grid block is out of bounds"));
-    return _blocks[block]->at(offset); // block is now in memory
+PIXVALUETYPE &Grid::value(int z, int y, int x, int threadIndex)  {
+     quint64 blockNr = int((y / blockCacheLimit()));
+     auto yb = blockNr  * blockCacheLimit();
+     auto yl = ( blockNr + 1) * blockCacheLimit() - 1;
+     switch(_orientation){
+     case oZXY:{
+
+             if (!_validStripe[blockNr][0]._valid){
+                 load(yb, yl, 0, _size.zsize()-1, x, threadIndex);
+             }
+             return _planes[y][z][x];
+        }
+    default:{
+
+         if (!_validStripe[z][blockNr]._valid)
+             load(yb,yl, z, z, x, threadIndex);
+         return _planes[z][y][x];
+         }
+     }
 }
 
-void Grid::setValue(quint32 block, int offset, PIXVALUETYPE v ) {
-	//Locker<> lock(_mutex);
-    if ( _blocks[block]->inMemory() ) {
-        _blocks[block]->at(offset) = v;
-        return;
+void Grid::setBlockDataXYZ(int z, int y, const std::vector<PIXVALUETYPE>& data){
+    quint64 blockNr = int((y / blockCacheLimit()));
+    int normalizedY = blockNr * blockCacheLimit();
+    quint32 maxStripeSize = linesPerBlock(y); // normalizedY + blockCacheLimit() < _size.ysize() ? blockCacheLimit() : _size.ysize() % blockCacheLimit();
+    auto inpIter = data.begin();
+    for(unsigned int localy = 0; localy < maxStripeSize; ++localy){
+        if (!_validStripe[z][blockNr]._valid){
+            _planes[z].resize(_size.ysize());
+            for(quint32 stripeD = 0 ; stripeD < maxStripeSize; ++stripeD)
+                _planes[z][normalizedY + stripeD].resize(_size.xsize());
+            _validStripe[z][blockNr]._valid = true;
+        }
+        std::copy(inpIter, inpIter + _size.xsize(), _planes[z][normalizedY + localy].begin());
+        inpIter +=  _size.xsize();
     }
-    Locker<> lock(_mutex);
-    if ( !_blocks[block]->inMemory())
-        if(!update(block, true))
-            return;
-    _blocks[block]->at(offset) = v;
+    _validStripe[z][blockNr]._loadedFromSource = true;
 }
 
-quint32 Grid::blocks() const {
-    return (quint32)_blocks.size();
-}
+void Grid::setBlockDataZXY(int z, int y, const std::vector<PIXVALUETYPE>& data){
+    auto climit = blockCacheLimit();
+    quint64 blockNr = int((y / climit));
+    int normalizedY = blockNr * blockCacheLimit();
+    quint32 maxStripeSize = _size.ysize() - y < climit ?_size.ysize() % climit : climit;
 
-quint32 Grid::blocksPerBand() const {
-    return _blocksPerBand;
-}
+    if (!_validStripe[blockNr][0]._valid){
 
-void Grid::setBlockData(quint32 block, const std::vector<PIXVALUETYPE>& data) { // this is the central function that brings in data from a raster coverage
-    if ( _blocks[block]->inMemory() ) {
-        _blocks[block]->fill(data);
-        return;
+        for(unsigned int localy = 0; localy < maxStripeSize; ++localy){
+            _planes[normalizedY +localy].resize(_size.zsize());
+            for(quint32 zl = 0 ; zl < _size.zsize(); ++zl)
+                _planes[normalizedY +localy][zl].resize(_size.xsize());
+        }
     }
-    if(!update(block, false))
-        return;
-    //block will be in memory now
-    _blocks[block]->fill(data);
-}
-
-char *Grid::blockAsMemory(quint32 block) {
-    if ( _blocks[block]->inMemory() ) { // no load needed
-        GridBlockInternal *du = _blocks[block];
-        char * p = du->blockAsMemory();
-        return p;
+    auto inpIter = data.begin();
+    for(unsigned int lz = 0; lz < _size.zsize(); ++lz){
+        for(unsigned int localy = 0; localy < maxStripeSize; ++localy){
+            std::copy(inpIter, inpIter + _size.xsize(), _planes[normalizedY + localy][lz].begin() );
+            inpIter += _size.xsize();
+        }
     }
-    Locker<> lock(_mutex);
-    if(!update(block, true))
-        return 0;
-    GridBlockInternal *du = _blocks[block];
-    char * p = du->blockAsMemory();
-    return p;
+    _validStripe[blockNr][0]._loadedFromSource = true;
+    _validStripe[blockNr][0]._valid = true;
 }
-
-void Grid::setBandProperties(RasterCoverage *raster, int n){
-    _size.zsize(_size.zsize() == iUNDEF ? n : _size.zsize() + n);
-    quint32 oldBlocks = (quint32)_blocks.size();
-    quint32 newBlocks = numberOfBlocks();
-    _blocks.resize(newBlocks);
-    _blockSizes.resize(newBlocks);
-    _blockOffsets.resize(newBlocks);
-    qint32 totalLines = _size.ysize();
-
-    for(quint32 block = oldBlocks; block < _blocks.size(); ++block) {
-        int linesPerBlock = std::min((qint32)_maxLines, totalLines);
-        _blocks[block] = new GridBlockInternal(this, block,linesPerBlock, _size.xsize());
-        _blockSizes[block] = linesPerBlock * _size.xsize();
-        _blockOffsets[block] = block == 0 ? 0 : _blockOffsets[block-1] +  _blockSizes[block];
-        totalLines -= _maxLines;
-        if ( totalLines <= 0) // to next band
-            totalLines = _size.ysize();
+void Grid::setBlockData(int z, int y, const std::vector<PIXVALUETYPE>& data){
+    switch(_orientation){
+    case oZXY:
+        setBlockDataZXY(z,y,data);
+        break;
+    default:
+        setBlockDataXYZ(z,y,data);
+        break;
     }
-    if (_cache.size() == 0)
-        _cache.resize(1);
 }
 
-void Grid::resetBlocksPerBand(quint64 rasterid, quint32 blockCount, int maxlines) {
-	Size<> keepSize = _size;
-	clear();
-	_maxLines = maxlines;
-	_blocksPerBand = blockCount;
-	prepare(rasterid, keepSize);
+void Grid::setValue(int z, int y, int x, PIXVALUETYPE v, int threadIndex ){
+    quint64 blockNr = int((y / blockCacheLimit()));
+    switch(_orientation){
+    case oZXY:{
+        if (!_validStripe[y][blockNr]._valid)
+             load(y, y + blockNr * blockCacheLimit(), z, _size.zsize()-1, x, threadIndex);
+         _planes[z][x][y] = v;
+        }
+        break;
+    default:{
+            if (!_validStripe[y][blockNr]._valid)
+                load(y, y + blockNr * blockCacheLimit(), 0, z, x, threadIndex);
+             _planes[z][x][y] = v;
+        }
+        break;
+    }
 }
 
 bool Grid::prepare(quint64 rasterid, const Size<> &sz) {
     Locker<> lock(_mutex);
-
     clear();
+    _rasterid = rasterid;
     _size = sz;
 
-    if ( _size.isNull()|| !_size.isValid() || _maxLines == 0)
-        return false;
-
-    if ( _size.zsize() == 0 || _size.zsize() == iUNDEF)
-        _size.zsize(1);
-
-    _rasterid = rasterid;
-     _maxLines = max(1, 1e7 / (sz.xsize() * 8));
-
-    quint64 bytesNeeded = _size.linearSize() * sizeof(PIXVALUETYPE);
-    quint64 mleft = context()->memoryLeft();
-    if ( _memUsed != 0) // reszing a grid may reuse an older grid; in this case the memory has to be correctly given back
-        context()->changeMemoryLeft(_memUsed);
-    _memUsed = std::min(bytesNeeded, mleft/2);
-    context()->changeMemoryLeft(-_memUsed);
-    int nblocks = numberOfBlocks();
-    _maxCacheBlocks = std::max(_size.zsize(), (quint32)20); // allow more blocks when using maplists
-    _blocksPerBand = nblocks / sz.zsize();
-
-    qint32 totalLines = _size.ysize();
-    _blocks.resize(nblocks);
-    _blockSizes.resize(nblocks);
-    _blockOffsets.resize(nblocks);
-
-    for(quint32 i = 0; i < _blocks.size(); ++i) {
-        int linesPerBlock = std::min((qint32)_maxLines, totalLines);
-        _blocks[i] = new GridBlockInternal(this, i,linesPerBlock, _size.xsize());
-        _blockSizes[i] = linesPerBlock * _size.xsize();
-        _blockOffsets[i] = i == 0 ? 0 : _blockOffsets[i-1] +  _blockSizes[i];
-        totalLines -= _maxLines;
-        if ( totalLines <= 0) // to next band
-            totalLines = _size.ysize();
+    int maxBlock = sz.ysize() / blockCacheLimit() + 1;
+    for(auto& bs : _validStripe){
+        bs.resize(maxBlock);
     }
-    _cache.resize(1);
-
+    setOrientation(_orientation);
     return true;
 }
 
-bool Grid::createCacheFile(int i){
+void Grid::setOrientation(Grid::Orientation ori){
+    auto unloadMap = _validStripe.size() == 0;
+    if ( ori != _orientation || unloadMap){
+        closure();
+        _orientation = ori;
+        _validStripe = std::vector<std::vector<BlockStatus>>();
 
-    QString name = QString("gridblocks_%1_%2_%3.temp").arg(i).arg(_gridid).arg(_rasterid);
+        switch(_orientation){
+            case oZXY:
+            _validStripe.resize(_size.ysize()/blockCacheLimit() + 1);
+            for(unsigned int y = 0; y < _validStripe.size(); ++y){
+                _validStripe[y] = std::vector<BlockStatus>(1, {false,unloadMap ? false : true});
+            }
+            _planes = std::vector<Plane>();
+             _planes.resize(_size.ysize());
+                break;
+            default:{
+                _validStripe.resize(_size.zsize());
+                for(unsigned int z = 0; z < _validStripe.size(); ++z){
+                    unsigned int numBlocks = _size.ysize() / blockCacheLimit();
+                    _validStripe[z] = std::vector<BlockStatus>(numBlocks + 1, {unloadMap ? false : true, false});
+                }
+                _planes = std::vector<Plane>();
+                _planes.resize(_size.zsize());
+            }
+        }
+    }
+
+}
+bool Grid::createCacheFile(int threadIndex){
+
+    QString name = QString("gridblocks_%1_%2.temp").arg(threadIndex).arg(_rasterid);
     QDir localDir(context()->cacheLocation().toLocalFile());
     if ( !localDir.exists()) {
         localDir.mkpath(localDir.absolutePath());
     }
     QString filepath = localDir.absolutePath() + "/" + name;
-    _cache[i]._cacheFile = new QFile(filepath);
-    quint64 blocks = _blocks.size() / std::max(1, (int)_cache.size() - 1); // -1 because cache[0] is the unchanged original cache, cache[1...] are the caches used for the trheads
-    if (_cache[i]._cacheFile->open(QIODevice::ReadWrite)) {
-        if (!_cache[i]._cacheFile->resize(blocks * _blockSizes[0] * sizeof(PIXELVALUE))){
+    _imageNames[threadIndex] = filepath;
+    _diskImages[threadIndex] = new QFile(filepath);
+    if (_diskImages[threadIndex]->open(QIODevice::ReadWrite)) {
+        if (!_diskImages[threadIndex]->resize(_size.linearSize() * sizeof(PIXVALUETYPE))){
             return false;
         }
     }else
         return false;
     return true;
 }
-int Grid::numberOfBlocks() {
-    PIXVALUETYPE rblocks = (PIXVALUETYPE)_size.ysize() / _maxLines;
-    int nblocks = (int)rblocks;
-    PIXVALUETYPE rest = rblocks - nblocks;
-    if ( rest >= (1.0 / ( _maxLines + 1))) {
-        nblocks++;
-    }
-    return nblocks * _size.zsize();
-}
 
-bool Grid::update(quint32 block, bool loadDiskData, int threadIndex) {
-    if ( block >= _blocks.size() ) // illegal, blocknumber is outside the allowed range
-        return false;
-    // update the _cache[_threadIndex] array to reflect the Most-Recently-Used blocks; the first position in the array is the MRU-block, the last position is the first candidate to be eliminated
-    auto iter = std::find(_cache[threadIndex]._cacheBlocks.begin(), _cache[threadIndex]._cacheBlocks.end(), GridBlockNrPair(this, block));
-    if ( iter != _cache[threadIndex]._cacheBlocks.end()){
-        auto gbnp = (*iter);
-        _cache[threadIndex]._cacheBlocks.erase(iter);
-        _cache[threadIndex]._cacheBlocks.insert(_cache[threadIndex]._cacheBlocks.begin(), gbnp);
-        if ( !_blocks[block]->inMemory()){
-            _blocks[block]->init();
-            _blocks[block]->loadDiskDataToMemory();
-        }
-    } else { // block is not in memory, bring it in
-        if (_cache[threadIndex]._cacheBlocks.size() >= _maxCacheBlocks) { // keep list same size
-            _cache[threadIndex]._cacheBlocks.back()._grid->_blocks[_cache[threadIndex]._cacheBlocks.back()._blocknr]->save2Cache(); // least used element is saved to disk
-            _cache[threadIndex]._cacheBlocks.pop_back(); // least used element is eliminated from the cache list
-        }
-        _blocks[block]->init(); // the data will be overwritten entirely by either loadFromCache or setBlockData
-        if (loadDiskData)
-            _blocks[block]->loadDiskDataToMemory();
-        if (_blocks[block]->inMemory())
-            _cache[threadIndex]._cacheBlocks.insert(_cache[threadIndex]._cacheBlocks.begin(), GridBlockNrPair(this, block));
-    }
-    return true;
 
-}
-
-void Grid::unloadInternal() {
-    for (auto b : _blocks){
-        b->save2Cache();
-    }
-   // qDebug() << "grid unloaded:" << this;
-}
-
-void Grid::setBlock(int index, GridBlockInternal *block)
-{
+void Grid::unload(int threadIndex) {
     Locker<> lock(_mutex);
-    if (_cache[0]._cacheBlocks.size() >= _maxCacheBlocks) { // keep list same size
-        _cache[0]._cacheBlocks.back()._grid->_blocks[_cache[0]._cacheBlocks.back()._blocknr]->save2Cache(); // least used element is saved to disk
-        _cache[0]._cacheBlocks.pop_back(); // least used element is eliminated from the cache list
-    }
-    _cache[0]._cacheBlocks.insert(_cache[0]._cacheBlocks.begin(), GridBlockNrPair(this, block->blockNr()));
-    if ( index >= _blocks.size())
-        _blocks.resize(index + 1);
-    _blocks[index] = block;
-}
-
-void Grid::unload(bool uselock) {
-    if ( uselock) {
-        Locker<> lock(_mutex);
-        unloadInternal();
-    }else
-        unloadInternal();
-}
-
-std::map<quint32, std::vector<quint32> > Grid::calcBlockLimits(const IOOptions& options ){
-    std::map<quint32, std::vector<quint32> > result;
-    int blockplayer = blocksPerBand();
-    if ( options.size() == 0) {
-        quint32 lastblock = 0;
-        for(int layer = 0; layer < size().zsize(); ++layer) {
-            for(int block = 0; block < blockplayer; ++block) {
-                result[layer].push_back(lastblock + block);
+    auto clim = blockCacheLimit();
+    if ( _orientation == oXYZ){
+        for( unsigned int z = 0; z < _size.zsize(); ++z){
+            for(unsigned int block = 0; block < _validStripe[z].size(); ++block){
+                auto y = block * clim;
+                dumpBlock(z,y,iUNDEF, threadIndex);
             }
-            lastblock += blockplayer;
         }
-    } else {
-        auto bindex = options["blockindex"];
-        if ( bindex.isValid()) {
-            quint32 index = bindex.toUInt();
-            int layer = index / blockplayer;
-            result[layer].push_back(index);
+    }else{
+        for( unsigned int y = 0; y < _size.ysize(); ++y){
+            for(unsigned int block = 0; block < _validStripe[y].size(); ++block){
+                auto y = block * clim;
+                dumpBlock(0,y,iUNDEF, threadIndex);
+            }
         }
     }
-
-    return result;
 }
 
 bool Grid::isValid() const
@@ -523,68 +396,133 @@ bool Grid::isValid() const
     return !(_size.isNull() || _size.isValid());
 }
 
-qint64 Grid::memUsed() const
-{
-    return _memUsed;
-}
-
-PIXVALUETYPE Grid::findBigger(PIXVALUETYPE v)
-{
-    for(int i=0; i < _blocks.size(); ++i){
-        if ( !_blocks[i]->inMemory() )
-            update(i,true);
-        for(int j=0; j < _blocks[i]->blockSize(); ++j){
-            PIXVALUETYPE v2 = _blocks[i]->at(j);
-            if ( v2 >= v){
-                return v2;
-            }
-        }
-    }
-    return PIXVALUEUNDEF;
-}
-
 void Grid::prepare4Operation(int nThreads) {
-	//entry 0 remains untouched unless nthreads is 1 in which case nothing happens; the threads relevant cache will be loaded into 1...n threads
-	if (nThreads == 1)
-		return;
-	_cache.resize(nThreads + 1);
-    for(int t = 0; t < nThreads; ++t){
-        createCacheFile(t);
-    }
-    for (std::size_t idx = 1; idx < _cache[0]._cacheBlocks.size(); ++idx) {
-            int threadIdx = (int)((nThreads * (double)(_cache[0]._cacheBlocks[idx]._blocknr) / _blocksPerBand) + 1);
-           _cache[threadIdx]._cacheBlocks.push_back({ _cache[0]._cacheBlocks[idx]._grid, _cache[0]._cacheBlocks[idx]._blocknr });
-	}
-	_maxCacheBlocks = std::max(1, 1 + (int)_maxCacheBlocks / nThreads);
+    _diskImages.resize(nThreads + 1);
+    _imageNames.resize(nThreads + 1);
+    for(quint32 threadIndex = 1 ; threadIndex <= nThreads; ++threadIndex)
+        createCacheFile(threadIndex);
 }
 
 void Grid::unprepare4Operation() {
-    for (quint32 i = 1; i < _cache.size(); ++i) {
-        if (_cache[i]._cacheFile) {
-            _cache[i]._cacheFile->remove();
-            delete _cache[i]._cacheFile;
-            _cache[i]._cacheFile = 0;
+
+}
+
+quint32 Grid::blocksCount() const{
+    if ( _orientation == oZXY)
+        return int(_size.xsize()/ blockCacheLimit()) * _size.ysize();
+    return int(_size.ysize()/ blockCacheLimit()) * _size.zsize();
+}
+
+quint64 Grid::blockSize(int d) const {
+    auto lines = linesPerBlock(d);
+    if (_orientation == oZXY){
+        return lines * _size.ysize();
+    }
+    return lines * _size.xsize();
+}
+
+void Grid::setd3Size(int z, int y, int xzs){
+    if ( _orientation == oXYZ){
+        if ( z < _planes.size()){
+            auto& plane = _planes[z];
+            if ( plane.size() != _size.ysize())
+                plane.resize( _size.ysize());
+            quint64 blockNr = int((y / blockCacheLimit()));
+            quint32 maxd2 = linesPerBlock(y);
+            for(quint32 yl=0; yl < maxd2; ++yl)
+                plane[blockNr * blockCacheLimit() + yl].resize(xzs, rUNDEF);
+
+            _validStripe[z][blockNr]._valid = true;
+            _validStripe[z][blockNr]._loadedFromSource = true;
+
+        }
+    }else {
+        if ( z < _planes.size()){
+            auto& plane = _planes[y];
+            if ( plane.size() != _size.zsize())
+                plane.resize( _size.zsize());
+            quint32 maxd2 = size().zsize();
+            for(quint32 zl=0; zl < maxd2; ++zl)
+                plane[zl].resize(xzs, rUNDEF);
+
+            _validStripe[y][0]._valid = true;
+            _validStripe[y][0]._loadedFromSource = true;
+
         }
     }
-	_cache.resize(1);
-	_maxCacheBlocks = std::max(_size.zsize(), (quint32)20);
 }
-
-bool Grid::save2cache(int cacheNr, quint64 seekPosition, char *dataBlock, quint64 bytesNeeded){
-    if ( !_cache[cacheNr]._cacheFile)
-        if(!createCacheFile(cacheNr))
-            return false;
-
-    _cache[cacheNr]._cacheFile->seek(seekPosition);
-    auto total =  _cache[cacheNr]._cacheFile->write(dataBlock, bytesNeeded);
-    return total == bytesNeeded;
-
-}
-
-bool Grid::loadFromCache(int cacheNr, quint64 seekPosition, char * data, quint64 bytesNeeded){
-    if( _cache[cacheNr]._cacheFile->seek(seekPosition)){
-        quint64 total = _cache[cacheNr]._cacheFile->read(data, bytesNeeded);
-        return total == bytesNeeded;
+quint32 Grid::linesPerBlock(int d) const
+{
+    if ( _orientation == oXYZ){
+        quint64 blockNr = int((d / blockCacheLimit()));
+        unsigned int normalizedd = blockNr * blockCacheLimit();
+        quint32 maxLinesPerBlock = normalizedd + blockCacheLimit() <= _size.ysize() ? blockCacheLimit() : _size.ysize() % blockCacheLimit();
+        return maxLinesPerBlock;
+    }else{
+        quint64 blockNr = int((d / blockCacheLimit()));
+        unsigned int normalizedd = blockNr * blockCacheLimit();
+        quint32 maxLinesPerBlock = normalizedd + blockCacheLimit() <= _size.ysize() ? blockCacheLimit() : _size.ysize() % blockCacheLimit();
+        return maxLinesPerBlock;
     }
-    return false;
 }
+
+quint32 Grid::blockCacheLimit() const{
+    if ( _orientation == oZXY)
+        return 8;
+    return 100;
+}
+
+const Grid::BlockStatus& Grid::blockStatus(int z, int blockIndex) const{
+    if ( _orientation == oZXY)
+        return _validStripe[blockIndex][0];
+    return _validStripe[z][blockIndex];
+}
+
+quint64 Grid::seekPosition(int z, int y, int x) const{
+    auto normalizedY = normY(y);
+    if ( _orientation == oZXY)    {
+        return (normalizedY * _size.xsize()* _size.zsize() + x * _size.zsize()) * sizeof(PIXVALUETYPE);
+    }else
+        return (z * _size.xsize() * _size.ysize() + normalizedY * _size.xsize()) * sizeof(PIXVALUETYPE);
+}
+
+quint32 Grid::normY(int y) const{
+    quint64 blockNr = int((y / blockCacheLimit()));
+    return blockNr * blockCacheLimit() ;
+}
+
+bool Grid::pastHorizon(quint32 v) const {
+    return (v + 1) % blockCacheLimit() == 0 && v != 0;
+}
+
+void Grid::closure()
+{
+    if ( _validStripe.size() > 0){
+        if ( _orientation == oXYZ){
+            for(quint32 z=0; z < _size.zsize(); ++z){
+                for(quint32 yb=0; yb < _validStripe[z].size(); ++yb){
+                    const auto& st = _validStripe[z][yb];
+                    if ( st._valid){
+                        auto y = (yb + 1) * blockCacheLimit();
+                        dumpBlock(z,y,0,0);
+                    }
+                }
+            }
+        }else{
+            for(quint32 yb=0; yb < _validStripe.size(); ++yb){
+                for(quint32 z=0; z < _size.zsize(); ++z){
+                    const auto& st = _validStripe[yb][z];
+                    if ( st._valid){
+                        auto y = (yb + 1) * blockCacheLimit();
+                        dumpBlock(z,y,0,0);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void Grid::useCache(bool yesno){
+    _useCache = yesno;
+}
+

@@ -140,6 +140,7 @@ void Ilwis::exitIlwis(){
 
 	}
     delete kernel();
+    delete mastercatalog();
 }
 
 
