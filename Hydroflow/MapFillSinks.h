@@ -46,7 +46,7 @@ namespace Ilwis {
 
             long _xsize, _ysize;
             long m_iFlag;
-            std::deque<Pixel> _vPxlSinks;
+            std::vector<Pixel> _vPxlSinks;
 
             long m_sinkPixels;
             long m_sinkPixelsThreshold;
@@ -59,7 +59,7 @@ namespace Ilwis {
             bool fLocateInitialSink(Pixel pxl);
             void FindSinkContArea(Pixel pxl);
             void FindSinkContArea2(Pixel pxl);
-            void FlagAdjaCell(Pixel pxl, std::deque<Pixel>& vAdj);
+            void FlagAdjaCell(Pixel pxl, std::vector<Pixel>& vAdj);
 
             void GroupSinksFill();
             bool fIdentifyOutletCell(Pixel rcSink, Pixel& rcOutlet);
