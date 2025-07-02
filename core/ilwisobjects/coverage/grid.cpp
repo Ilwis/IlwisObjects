@@ -95,7 +95,7 @@ quint64 Grid::calcSeekPosition(unsigned int z, unsigned int y ) const{
 void Grid::dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) {
     quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
     std::vector<char> data(dataSize);
-    for (unsigned int z = z1; z <= std::min(_size.xsize()-1, z2); ++z){
+    for (unsigned int z = z1; z <= std::min(_size.zsize()-1, z2); ++z){
         for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
             quint64 seekposition = calcSeekPosition(z,y);
             _diskImages[threadIndex]->seek(seekposition);
@@ -333,7 +333,7 @@ void Grid::setOrientation(Grid::Orientation ori){
             case oZXY:
             _validStripe.resize(_size.ysize()/blockCacheLimit() + 1);
             for(unsigned int y = 0; y < _validStripe.size(); ++y){
-                _validStripe[y] = std::vector<BlockStatus>(1, {false,unloadMap ? false : true});
+                _validStripe[y] = std::vector<BlockStatus>(_size.zsize(), {false,unloadMap ? false : true});
             }
             _planes = std::vector<Plane>();
              _planes.resize(_size.ysize());
