@@ -134,7 +134,6 @@ Ilwis::OperationImplementation* DrainageNetworkOrdering::create(quint64 metaid, 
 
 Ilwis::OperationImplementation::State DrainageNetworkOrdering::prepare(ExecutionContext* ctx, const SymbolTable& st)
 {
-
 	OperationImplementation::prepare(ctx, st);
 	QString inraster = _expression.parm(0).value();
 	QString outputName = _expression.parm(0, false).value();
@@ -1108,19 +1107,15 @@ void DrainageNetworkOrdering::CreateTable(long maxStrahler)
 	crddom3->setCoordinateSystem(_csy);
 	newTable->addColumn("TostreamCoord", crddom3, true);
 
-	newTable->addColumn("StrahlerClass", IlwisObject::create<IDomain>("value"), true);
-	ColumnDefinition& strahlerClass = newTable->columndefinitionRef("StrahlerClass");
-	strahlerClass.datadef().range(new NumericRange(1, 32767, 1));
+	IThematicDomain strahlerDom;
+	strahlerDom.prepare();
 	
-	/*if (maxStrahler > 0) {
-		IThematicDomain strahlerDomain;
-		strahlerDomain.prepare();
-		for (long i = 1; i <= maxStrahler; ++i) {
-			strahlerDomain->addItem(new ThematicItem(QString("Strahler %1").arg(i), "", ""));
-		}
-		newTable->addColumn("StrahlerClass", strahlerDomain, true);
-	}*/
+	for(int i = 0; i < maxStrahler; ++i)
+		strahlerDom->addItem(new ThematicItem({ QString("%1").arg(i+1), "", "", }, i));
+	strahlerDom->name("StrahlerClass");
 
+	newTable->addColumn("StrahlerClass", strahlerDom);
+	
 	_outputTable = newTable;
 }
 
@@ -1137,10 +1132,7 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 	CreateTable(iMaxOrder);
 
-	_outputTable->addColumn(_outDrainageRaster->primaryKey(), _orderDomain);
-
 	Coordinate c1, c2;
-
 	double rUpstreamHeight, rDownstreamHeight;
 
 	quint32 record = 0;
@@ -1225,9 +1217,8 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 			_outputTable->setCell("TostreamCoord", record, c3);
 
-			_outputTable->setCell("StrahlerClass", record, QVariant((int)rec.Strahler));
-
-			_outputTable->setCell(_outDrainageRaster->primaryKey(), record, QVariant(record));
+			//QString strahlerValue(rec.Strahler);
+			_outputTable->setCell("StrahlerClass", record, QVariant(QString("%1").arg(rec.Strahler)));
 		}
 	}
 	m_vRecords.resize(0);
