@@ -161,11 +161,13 @@ public:
      * @param key the property key.
      */
     void removeProperty(const QString& key);
+    QHash<QString, QVariant> properties() const;
 
     /**
      * Query for the url of this Resource, the url points to the file used to created this Resource
      * @return An url to the file of this Resource
      */
+
     QUrl url(bool asRaw=false) const;
 
     /**
