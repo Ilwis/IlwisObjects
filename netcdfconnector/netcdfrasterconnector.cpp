@@ -60,6 +60,9 @@ bool NetCdfRasterConnector::loadMetaData(IlwisObject *obj, const IOOptions &)
     QString ncdfFile = urls.left(idx);
     QString product = url.toString().right(url.toString().size() - idx - 1);
     auto items = NetCdfCatalogExplorer::createResources(ncdfFile, product);
+    if ( items.size() == 0)
+        return false;
+
     const Resource& res = items[0];
     QString csyCode = "code=proj4:" + res["coordinatesystem"].toString();
     ICoordinateSystem csy;
@@ -85,6 +88,17 @@ bool NetCdfRasterConnector::loadMetaData(IlwisObject *obj, const IOOptions &)
 
     auto keys = res["dimension vars"].toString();
     _dimVars = keys.split("|");
+    auto &resR = raster->resourceRef();
+    if ( res.hasProperty("undefined_value"))
+        resR.addProperty("undefined_value", res["undefined_value"]);
+    if ( res.hasProperty("used var"))
+        resR.addProperty("used var", res["used var"]);
+    auto props = res.properties();
+    for (auto iter = props.begin(); iter != props.end(); ++iter){
+        auto key = iter.key();
+        if ( key.indexOf("metadata") != -1)
+            resR.addProperty(key, res[key]);
+    }
 
 
     return true;
@@ -105,16 +119,12 @@ QString getAttrValue(const netCDF::NcVar& v, const QString& label) {
 
 }
 
-template<class T> void NetCdfRasterConnector::getValues(const std::vector<size_t>& index, const std::vector<size_t>& count, int maxX, int maxY,  bool xy, netCDF::NcVar& var,std::vector<T>&data, std::vector<double>& values){
+template<class T> void NetCdfRasterConnector::getValues(const std::vector<size_t>& index, const std::vector<size_t>& count, int maxX, int maxY,  bool xy, netCDF::NcVar& var,std::vector<T>&data, double undef, std::vector<double>& values){
     try
     {
-    QString s;
+
     var.getVar(index,count, data.data());
-    if ( _resource.hasProperty("undefined_value")){
-       s = _resource["undefined_value"].toString();
-    }else
-        s = getAttrValue(var, "_FillValue");
-    double undef = s == sUNDEF ? rUNDEF : s.toDouble();
+
 
     for(int y =0; y < maxY; ++y){
         for(int x = 0; x < maxX; ++x){
@@ -130,115 +140,115 @@ template<class T> void NetCdfRasterConnector::getValues(const std::vector<size_t
       std::cout<<"FAILURE*************************************"<<endl;
     }
 }
-void NetCdfRasterConnector::getValue(const std::vector<size_t>& index, const std::vector<size_t>& count, int maxX, int maxY,  bool xy, netCDF::NcVar& var, std::vector<double>& values){
+void NetCdfRasterConnector::getValue(const std::vector<size_t>& index, const std::vector<size_t>& count, int maxX, int maxY,  bool xy, netCDF::NcVar& var, std::vector<double>& values, double undef){
+
+
     netCDF::NcType tp = var.getType();
     auto dataType = tp.getTypeClass();
 
     if ( dataType == netCDF::NcType::nc_FLOAT){
         std::vector<float> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_DOUBLE){
         std::vector<double> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_INT){
         std::vector<quint32> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_UINT){
         std::vector<quint32> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_INT64){
         std::vector<qint64> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_UINT64){
         std::vector<quint64> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_SHORT){
         std::vector<qint16> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_USHORT){
         std::vector<quint16> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_BYTE){
         std::vector<qint8> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
     if ( dataType == netCDF::NcType::nc_UBYTE){
         std::vector<quint8> data(maxX * maxY, flUNDEF);
-        getValues(index, count, maxX, maxY, xy, var, data, values);
+        getValues(index, count, maxX, maxY, xy, var, data, undef, values);
     }
 }
 
 bool NetCdfRasterConnector::loadData(IlwisObject* obj, const IOOptions& options) {
 
-    if (!_binaryIsLoaded) {
-        const Resource& res = obj->resourceRef();
-        auto urls = res.url().toString();
-        auto idx = urls.lastIndexOf("/");
-        QString ncdfFile = urls.left(idx);
-        QString product = urls.right(urls.size() - idx - 1);
-        auto filename = QUrl(ncdfFile).toLocalFile();
+    const Resource& res = obj->resourceRef();
+    auto urls = res.url().toString();
+    auto idx = urls.lastIndexOf("/");
+    QString ncdfFile = urls.left(idx);
+    QString product = urls.right(urls.size() - idx - 1);
+    auto filename = QUrl(ncdfFile).toLocalFile();
 
-        netCDF::NcFile file(filename.toStdString(), netCDF::NcFile::read);
-        std::multimap<std::string,netCDF::NcVar> vars = file.getVars();
-        auto name = res["used var"].toString();
-        std::multimap<std::string,netCDF::NcVar>::const_iterator iter = vars.find(name.toStdString());
+    netCDF::NcFile file(filename.toStdString(), netCDF::NcFile::read);
+    std::multimap<std::string,netCDF::NcVar> vars = file.getVars();
+    std::multimap<std::string,netCDF::NcVar>::const_iterator iter = vars.find(product.toStdString());
 
-        if ( iter == vars.end())
-            return false;
-        netCDF::NcVar var = iter->second;
+    if ( iter == vars.end())
+        return false;
+    netCDF::NcVar var = iter->second;
+    RasterCoverage *raster = static_cast<RasterCoverage *>(obj);
+    UPGrid& grid = raster->gridRef();
 
+    quint32 y = options.contains("y") ? options["y"].toUInt(): 0;
+    quint32 z = options.contains("z") ? options["z"].toUInt(): 0;
+    Size<> sz = raster->size();
 
-
-        //double undef = res["undefined_value"].toDouble();
-        RasterCoverage *raster = static_cast<RasterCoverage *>(obj);
-        UPGrid& grid = raster->gridRef();
-
-        quint32 y = options.contains("y") ? options["y"].toUInt(): 0;
-        quint32 z = options.contains("z") ? options["y"].toUInt(): 0;
-        int bIndex = options["blockindex"].toInt();
-        Size<> sz = raster->size();
-
-
-        //std::map<quint32, std::vector<quint32> > blocklimits = raster->grid()->calcBlockLimits(options);
-
-        int n = var.getDimCount();
-        std::vector< netCDF::NcDim > dims = var.getDims();
-        std::vector<int> axisLocations(n);
-        int acount = 0;
-        for(netCDF::NcDim dim : dims){
-            auto axisName = dim.getName();
-            std::multimap< std::string, netCDF::NcVar >::const_iterator iterAxis= vars.find(axisName);
-            auto axisType = NetCdfCatalogExplorer::getAxisType(iterAxis);
-            if ( axisType == NetCdfCatalogExplorer::atX )
-               axisLocations[0] = acount;
-            if ( axisType == NetCdfCatalogExplorer::atY)
-               axisLocations[1] = acount;
-            if ( axisType == NetCdfCatalogExplorer::atZ)
-               axisLocations[2] = acount;
-            ++acount;
-        }
-        std::vector<size_t> index = {0,0,0,0};
-        index[axisLocations[2]] =  z;
-        std::vector<size_t> count = {1,0,0,0};
-        int maxX = sz.xsize();
-        int maxY = grid->blockSize(options["blockindex"].toInt()) / maxX;
-        count[axisLocations[2]] = 1;
-        count[axisLocations[0]] = maxX;
-        count[axisLocations[1]] = maxY;
-        std::vector<double> values(maxX * maxY, rUNDEF);
-        bool xy = axisLocations[0] < axisLocations[1];
-        getValue(index,count,maxX,maxY,xy,var,values);
-        grid->setBlockData(bIndex, y, values);
-
+    int n = var.getDimCount();
+    std::vector< netCDF::NcDim > dims = var.getDims();
+    std::vector<int> axisLocations(n);
+    int acount = 0;
+    for(netCDF::NcDim dim : dims){
+        auto axisName = dim.getName();
+        std::multimap< std::string, netCDF::NcVar >::const_iterator iterAxis= vars.find(axisName);
+        auto axisType = NetCdfCatalogExplorer::getAxisType(iterAxis);
+        if ( axisType == NetCdfCatalogExplorer::atX )
+           axisLocations[0] = acount;
+        if ( axisType == NetCdfCatalogExplorer::atY)
+           axisLocations[1] = acount;
+        if ( axisType == NetCdfCatalogExplorer::atZ)
+           axisLocations[2] = acount;
+        ++acount;
     }
+    std::vector<size_t> index = {0,0,0,0};
+    index[axisLocations[0]] = 0;
+    index[axisLocations[1]] = y;
+    index[axisLocations[2]] =  z;
+    std::vector<size_t> count = {1,0,0,0};
+    int maxX = sz.xsize();
+    int maxY = grid->blockSize(options["blockindex"].toInt()) / maxX;
+    count[axisLocations[2]] = 1;
+    count[axisLocations[0]] = maxX;
+    count[axisLocations[1]] = maxY;
+    std::vector<double> values(maxX * maxY, rUNDEF);
+    bool xy = axisLocations[0] < axisLocations[1];
+    QString s;
+    if ( _resource.hasProperty("undefined_value")){
+       s = _resource["undefined_value"].toString();
+    }else
+        s = getAttrValue(var, "_FillValue");
+    double undef = s == sUNDEF ? rUNDEF : s.toDouble();
+    getValue(index,count,maxX,maxY,xy,var,values, undef);
+    grid->setBlockData(z, y, values);
+     _binaryIsLoaded = true;
+
 
     return true;
 }

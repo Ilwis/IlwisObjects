@@ -43,6 +43,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "ilwiscontext.h"
 #include "netcdfcatalogconnector.h"
 #include "mastercatalogcache.h"
+#include "mathhelper.h"
 #include <netcdf.h>
 
 
@@ -53,7 +54,7 @@ using namespace NetCdf;
 const std::set<QString> skippableVarName= {"x","y","lat","lon","time"};
 const std::set<QString> xlables = {"projection_x_coordinate", "x", "lon", "longitude"};
 const std::set<QString> ylables = {"projection_y_coordinate", "y", "lat", "latitude"};
-const std::set<QString> zlables = {"time", "t","z"};
+const std::set<QString> zlables = {"time", "t","z","observation time"};
 
 REGISTER_CATALOGEXPLORER(NetCdfCatalogExplorer)
 
@@ -127,9 +128,12 @@ void NetCdfCatalogExplorer::setMetaData(const std::map<QString, QVariant>& globa
     fillMetadata(globals, "project|project_id", "product.project", res);
     fillMetadata(globals, "references", "product.references", res);
     fillMetadata(globals, "license", "product.license", res);
+    fillMetadata(globals, "history", "product.history", res);
 
     std::map<QString, QVariant>::const_iterator itFind;
     if ( (itFind = globals.find("summary")) !=  globals.end())
+        res.setDescription((*itFind).second.toString());
+    if ( (itFind = globals.find("case_title")) !=  globals.end())
         res.setDescription((*itFind).second.toString());
 
 
@@ -148,6 +152,7 @@ template<class T> QVariant getValue(const T& d){
     }else if ( ddtype == netCDF::NcType::nc_FLOAT){
        float f;
         d.second.getValues(&f);
+        f = MathHelper::formatNumber(f);
         return f;
     }else if ( ddtype == netCDF::NcType::nc_DOUBLE){
         double f;
@@ -212,7 +217,15 @@ std::map<QString, std::pair<unsigned int, QString> > NetCdfCatalogExplorer::getD
                 auto iter2 =  attrs.find("standard_name");
                 if ( iter2 != attrs.end()){
                     attrs["standard_name"].getValues(standardName);
-                    dimensions[QString::fromStdString(standardName)] = std::pair<int, QString>(sz,QString::fromStdString(dimName)) ;
+                    dimensions[QString::fromStdString(standardName).trimmed()] = std::pair<int, QString>(sz,QString::fromStdString(dimName).trimmed()) ;
+                }else {
+                    auto iter2 =  attrs.find("long_name");
+                    if ( iter2 != attrs.end()){
+                        attrs["long_name"].getValues(standardName);
+                        auto p = QString::fromStdString(standardName).trimmed().toLower();
+                        if (p.indexOf(QString::fromStdString(dimName)) != -1)
+                            dimensions[QString::fromStdString(dimName).trimmed().toLower()] = std::pair<int, QString>(sz,QString::fromStdString(dimName).trimmed()) ;
+                    }
                 }
             }
         }
@@ -490,7 +503,7 @@ void NetCdfCatalogExplorer::setRasterGeometryinResource(const ICoordinateSystem&
     QVariant v;
     v.setValue(csy->code());
     res.addProperty("coordinatesystem", v);
-    res.addProperty("domain", "code=domain:value");
+    res.addProperty("domain", "_FillValuecode=domain:value");
     res.dimensions(sz.toString());
     v.setValue(grf->toString());
     res.addProperty("georeference", v);
@@ -521,6 +534,7 @@ QVariant getAttributeValue(const netCDF::NcVar& v, const QString& label) {
         }else if ( ddtype == netCDF::NcType::nc_FLOAT){
             float f;
             att2.getValues(&f);
+            //f = MathHelper::formatNumber((double)f);
             return QVariant(f);
         }else if ( ddtype == netCDF::NcType::nc_DOUBLE){
             double f;
@@ -628,12 +642,14 @@ std::vector<Resource> NetCdfCatalogExplorer::createResources(const QUrl& url, co
                 auto s = getAttributeValue(v, "long_name").toString();
                 res.setDescription(s);
                 s = getAttributeValue(v, "cell_methods").toString();
-                if ( s != sUNDEF)
+                if ( s != sUNDEF && s !="")
                     res.addMetaTag("product.cell.modes", s);
 
                 auto qvar = getAttributeValue(v, "_FillValue");
-                if ( !qvar.isNull())
+                if ( !qvar.isNull()){
+
                     res.addProperty("undefined_value",  qvar.toDouble());
+                }
                 QString keys;
                 for(auto const& k: dimensions){
                     keys += keys.size() == 0 ? k.first: QString("|") + k.first;
