@@ -628,7 +628,7 @@ void RasterCoverageConnector::loadNumericBlock( quint32 yNormalized,
                     v = v * _offsetScales[b].scale + _offsetScales[b].offset;
 
                 if (nodata == rUNDEF)
-                    values[i] = v;
+                    values[i + offset] = v;
                 else
                     values[i + offset] =nodata == v ? rUNDEF : v;
             }
