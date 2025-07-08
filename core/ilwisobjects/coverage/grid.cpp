@@ -49,12 +49,11 @@ Grid *Grid::clone(quint64 newRasterId, int dLimit1, int dLimit2)
 {
     Locker<> lock(_mutex);
     quint32 start = dLimit1 == iUNDEF ? 0 : dLimit1;
-    quint32 end = dLimit2 == iUNDEF ? (_orientation == oXYZ ? _size.zsize() : _size.xsize()) : dLimit2 + 1;
     Grid *grid = new Grid(_orientation);
-    grid->prepare(newRasterId,Size<>(_size.xsize(), _size.ysize(), end - start));
-    grid->_validStripe = _validStripe;
     grid->_useCache = _useCache;
     if ( _orientation == oXYZ){
+        quint32 end = dLimit2 == iUNDEF ? _size.zsize() : dLimit2 + 1;
+        grid->prepare(newRasterId,Size<>(_size.xsize(), _size.ysize(), end - start), _orientation);
         grid->_planes.resize(_size.zsize());
         for(quint32 z = start;  z < end; ++z) {
             grid->_planes[z] = std::vector<std::vector<double>>(_size.ysize());
@@ -64,8 +63,20 @@ Grid *Grid::clone(quint64 newRasterId, int dLimit1, int dLimit2)
                     grid->value(z,y,x,0) = value(z,y,x,0);
             }
         }
+    }else {
+       grid->_planes.resize(_size.ysize());
+       quint32 end = dLimit2 == iUNDEF ? _size.ysize() : dLimit2 + 1;
+       grid->prepare(newRasterId,Size<>(_size.xsize(), _size.ysize(), _size.zsize()), _orientation);
+       for(quint32 y = start;  y < end; ++y) {
+            grid->_planes[y] = std::vector<std::vector<double>>(_size.zsize());
+            for(quint32 z = 0; z < _size.zsize(); ++z){
+                grid->_planes[y][z] = std::vector<double>(_size.xsize());
+                for(quint32 x=0; x < _size.xsize(); ++x)
+                    grid->value(z,y,x,0) = value(z,y,x,0);
+            }
+       }
     }
-    //grid->closure();
+    grid->closure();
     return grid;
 
 }
@@ -94,9 +105,11 @@ quint64 Grid::calcSeekPosition(unsigned int z, unsigned int y ) const{
 
 void Grid::dump(unsigned int y1, unsigned int y2, unsigned int z1, unsigned int z2, int threadIndex) {
     quint64 dataSize = _size.xsize() * sizeof(PIXVALUETYPE);
+    auto zsize = std::min(_size.zsize()-1, z2);
+    auto ysize = std::min(_size.ysize()-1,y2);
     std::vector<char> data(dataSize);
-    for (unsigned int z = z1; z <= std::min(_size.zsize()-1, z2); ++z){
-        for(unsigned int y = y1; y <= std::min(_size.ysize()-1,y2); ++y){
+    for (unsigned int z = z1; z <= zsize; ++z){
+        for(unsigned int y = y1; y <= ysize; ++y){
             quint64 seekposition = calcSeekPosition(z,y);
             _diskImages[threadIndex]->seek(seekposition);
             if ( _orientation == Grid::oXYZ){
@@ -308,7 +321,7 @@ void Grid::setValue(int z, int y, int x, PIXVALUETYPE v, int threadIndex ){
     }
 }
 
-bool Grid::prepare(quint64 rasterid, const Size<> &sz) {
+bool Grid::prepare(quint64 rasterid, const Size<> &sz,Grid::Orientation ori) {
     Locker<> lock(_mutex);
     clear();
     _rasterid = rasterid;
@@ -318,13 +331,14 @@ bool Grid::prepare(quint64 rasterid, const Size<> &sz) {
     for(auto& bs : _validStripe){
         bs.resize(maxBlock);
     }
-    setOrientation(_orientation);
+    setOrientation(ori);
     return true;
 }
 
 void Grid::setOrientation(Grid::Orientation ori){
-    auto unloadMap = _validStripe.size() == 0;
+    auto unloadMap = _validStripe.size() == 0 || _imageNames.size() ==0;
     if ( ori != _orientation || unloadMap){
+        unloadMap = true;
         closure();
         _orientation = ori;
         _validStripe = std::vector<std::vector<BlockStatus>>();
@@ -438,15 +452,21 @@ void Grid::setd3Size(int z, int y, int xzs){
         }
     }else {
         if ( z < _planes.size()){
-            auto& plane = _planes[y];
-            if ( plane.size() != _size.zsize())
-                plane.resize( _size.zsize());
-            quint32 maxd2 = size().zsize();
-            for(quint32 zl=0; zl < maxd2; ++zl)
-                plane[zl].resize(xzs, rUNDEF);
 
-            _validStripe[y][0]._valid = true;
-            _validStripe[y][0]._loadedFromSource = true;
+            quint32 maxd2 = size().zsize();
+            quint64 blockNr = int((y / blockCacheLimit()));
+            quint64 ylines = linesPerBlock(y);
+            quint64 ymin = blockNr * blockCacheLimit();
+            for ( quint32 y1 = ymin; y1 < ymin + ylines; ++y1){
+                auto& plane = _planes[y1];
+                if ( plane.size() != _size.zsize())
+                    plane.resize( _size.zsize());
+                for(quint32 zl=0; zl < maxd2; ++zl)
+                    plane[zl].resize(xzs, rUNDEF);
+            }
+
+            _validStripe[blockNr][0]._valid = true;
+            _validStripe[blockNr][0]._loadedFromSource = true;
 
         }
     }
@@ -526,3 +546,6 @@ void Grid::useCache(bool yesno){
     _useCache = yesno;
 }
 
+Grid::Orientation Grid::flow() const{
+    return _orientation;
+}

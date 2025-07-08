@@ -57,7 +57,7 @@ public:
     void setOrientation(Grid::Orientation ori);
 
     void setBlockData(int d1, int d2, const std::vector<PIXVALUETYPE>& data);
-    bool prepare(quint64 rasterid, const Size<> &sz) ;
+    bool prepare(quint64 rasterid, const Size<> &sz, Orientation ori = oXYZ) ;
     Size<> size() const;
     Grid * clone(quint64 newRasterId, int index1=iUNDEF, int index2=iUNDEF) ;
     void unload(int threadIndex=0);
@@ -71,6 +71,7 @@ public:
     void unprepare4Operation();
     quint32 blockCacheLimit() const;
     void useCache(bool yesno);
+    Orientation flow() const;
 
 
 protected:
