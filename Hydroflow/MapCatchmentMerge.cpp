@@ -601,14 +601,14 @@ void MapCatchmentMerge::CreateTableSegmentsExtracted()
 	PixelIterator iterDem = PixelIterator(_inDemRaster, BoundingBox(), PixelIterator::fXYZ);
 	bool IsExists(false);
 	long iRecs = -1;
-	for (long i = 0; i < m_extractedsegids.size(); i++)
+    for (int i = 0; i < m_extractedsegids.size(); i++)
 	{
 		long segnum = m_extractedsegids[i].size();
 		for (int j = 0; j<segnum; j++)
 		{
-			int segid = m_extractedsegids[i][j]-1;
+            long segid = m_extractedsegids[i][j]-1;
 			iRecs++;
-			_outputExtractSegTable->setCell("Catchment", iRecs, QVariant(i + 1));
+            _outputExtractSegTable->setCell("Catchment", iRecs, QVariant(i + 1));
 			_outputExtractSegTable->setCell("UpstreamLinkID", iRecs, QVariant(cUpstreamLinkSrc[segid].toString()));
 
 			QVariant c1a;
