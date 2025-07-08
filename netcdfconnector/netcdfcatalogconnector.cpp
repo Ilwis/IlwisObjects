@@ -152,7 +152,6 @@ template<class T> QVariant getValue(const T& d){
     }else if ( ddtype == netCDF::NcType::nc_FLOAT){
        float f;
         d.second.getValues(&f);
-        f = MathHelper::formatNumber(f);
         return f;
     }else if ( ddtype == netCDF::NcType::nc_DOUBLE){
         double f;
