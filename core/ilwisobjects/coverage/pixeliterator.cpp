@@ -158,7 +158,7 @@ PixelIterator::PixelIterator(const PixelIterator& iter)  {
 
 PixelIterator::~PixelIterator(){
     if ( _raster.isValid()){
-        _raster->gridRef()->closure();
+        //_raster->gridRef()->closure();
     }
 }
 
