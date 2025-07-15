@@ -70,7 +70,6 @@ bool VariableThresholdComputationBase::execute(ExecutionContext* ctx, SymbolTabl
     bool ok;
     ok = ComputeInternalRelief();
 
-
     if (_reliefRaster.isValid())
         ok = executeReliefThresholdComputation();
     else
@@ -313,8 +312,7 @@ bool VariableThresholdComputationBase::executeReliefThresholdComputation()
         iterPos++;
     }
    
-   return ReClassify();
-
+    return true;
 }
 
 
