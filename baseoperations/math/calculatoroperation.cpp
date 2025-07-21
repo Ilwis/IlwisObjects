@@ -695,7 +695,7 @@ PIXVALUETYPE CalculatorOperation::calc(const std::vector<Action>& localActions) 
             case maATAN:
             {
                 PIXVALUETYPE v = GetValue(action._values[0],result);
-                calcResult =  ( v < -M_PI/2 || v > M_PI/2 || isNumericalUndef(v)) ? PIXVALUEUNDEF : std::acos(v);
+                calcResult =  ( isNumericalUndef(v)) ? PIXVALUEUNDEF : std::atan(v);
                 break;
             }
             case maATANH:
