@@ -56,6 +56,9 @@ If you are unsure if that is the correct folder, you can search for it:
 Start python in the activated environment, and try `import ilwis` again.
 
 #### 3. `ILWIS couldn't be initialized`
+
+##### 3.1 `libgdal.so fails to load due to libldap.so`
+
 When `import ilwis` within python gives the following error:
 
 `ImportError: ILWIS couldn't be initialized!`
@@ -67,6 +70,22 @@ This happens because of a version-discrepancy between a system-library and a lib
 Solution: Exit python, and execute the following to ensure availability of the correct library version:
 
 `conda install python-ldap --force-reinstall`
+
+Start python in the activated environment, and try `import ilwis` again.
+
+##### 3.2 `libgdal.so fails to load due to libstdc++.so`
+
+When `import ilwis` within python gives the following error:
+
+`ImportError: ILWIS couldn't be initialized!`
+
+`Could not load library in module:gdalconnector, name: libgdal.so,error :Cannot load library libgdal.so: (/home/<username>/miniconda3/envs/p311/lib/libstdc++.so.6: version 'GLIBCXX_3.4.30' not found (required by /lib/libgdal.so))`
+
+This happens because of a version-discrepancy between a system-library and a library installed in the conda-environment, preventing `libgdal.so` to load.
+
+Solution: Exit python, and execute the following to ensure availability of the correct library version:
+
+`conda install -c conda-forge gcc`
 
 Start python in the activated environment, and try `import ilwis` again.
 
