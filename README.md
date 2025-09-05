@@ -85,7 +85,7 @@ This happens because of a version-discrepancy between a system-library and a lib
 
 Solution: Exit python, and execute the following to ensure availability of the correct library version:
 
-`conda install -c conda-forge gcc`
+`conda install -c conda-forge gcc=12.1.0`
 
 Start python in the activated environment, and try `import ilwis` again.
 
