@@ -116,7 +116,7 @@ bool Timesat::calcFitWindow(const int i, const int ienvi,
     int tmp2 = it - wfit.begin();
     m2 = std::max(m2, tmp2);
     bool rightFail = cnt < 3;
-    if (rightFail) m2 = _nb;
+    if (rightFail) m2 = wfit.size();
 
     return !(leftFail || rightFail);
 }

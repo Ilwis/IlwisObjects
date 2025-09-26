@@ -49,7 +49,7 @@ void MasterCatalogCache::store() const
         QDataStream stream(&cacheFile);
         QString query = QString("select * from mastercatalog where container not like 'ilwis:%'");
         InternalDatabaseConnection db(query);
-        stream << maxid;
+         stream << maxid;
         stream << maxid;
         stream << kernel()->version()->cacheVersion;
         while( db.next()){
@@ -103,6 +103,7 @@ void MasterCatalogCache::load()
                 stream >> magic;
                 if ( magic != _MAGIC){
                     deleteCache(stream);
+                    _hashes.clear();  // cache corrupt? -> clean up already loaded resources
                     return;
                 }
                 resource.load(stream);
