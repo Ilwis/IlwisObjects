@@ -43,7 +43,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "geos/geom/LineString.h"
 #include "coordinatedomain.h"
 #include "ellipsoid.h"
-#include "itemdomain.h"
 #include "thematicitem.h"
 
 #include "MapDrainageNetworkOrdering.h"

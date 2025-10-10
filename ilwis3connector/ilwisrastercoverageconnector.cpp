@@ -34,7 +34,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "catalogexplorer.h"
 #include "catalogconnector.h"
 #include "inifile.h"
-#include "numericrange.h"
 #include "numericdomain.h"
 #include "representation.h"
 #include "catalog.h"

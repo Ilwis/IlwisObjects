@@ -51,7 +51,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "projection.h"
 #include "tableconnector.h"
 #include "colorrange.h"
-#include "raster.h"
 #include "coordinatesystemconnector.h"
 #include "coverageconnector.h"
 #include "odfitem.h"

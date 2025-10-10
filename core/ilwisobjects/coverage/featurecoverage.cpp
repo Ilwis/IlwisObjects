@@ -32,9 +32,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "geos/geom/Point.h"
 #include "geos/geom/Polygon.h"
 #include "representation.h"
-#ifdef Q_OS_WIN
-#include "geos/geom/PrecisionModel.h"
-#endif
 #include "geos/geom/GeometryFactory.h"
 #include "geos/io/ParseException.h"
 #include "geometryhelper.h"

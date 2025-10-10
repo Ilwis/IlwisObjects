@@ -37,7 +37,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "ilwis4georefconnector.h"
 #include "ilwis4domainconnector.h"
 #include "ilwis4tableconnector.h"
-#include "ilwisobjectconnector.h"
 
 
 
