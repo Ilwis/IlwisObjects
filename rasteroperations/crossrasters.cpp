@@ -102,6 +102,7 @@ bool CrossRastersBase::crossWithRaster(const  BoundingBox& box){
     initialize(_outputRaster->size().linearSize());
     quint32 count = 0;
     double pixarea = _inputRaster1->georeference()->pixelSize();
+    pixarea *= pixarea;
     std::map<quint64, Combo> combos;
     std::vector<quint64> inCreationOrder;
     std::for_each(iterIn1, iterIn1.end(), [&](double& v1){
@@ -209,11 +210,13 @@ bool CrossRastersBase::crossNoRaster( const BoundingBox& box){
 
         updateTranquilizer(count++,1000);
     }
+    /*
     if ( combos.size() > 50000){
         kernel()->issues()->log(TR("Number of unique combinations exceeds the maximum 50000 ( = ") + QString::number(combos.size() ) + " )");
         return false;
 
     }
+    */
     quint32 record = 0;
     NamedIdentifierRange *idrange = new NamedIdentifierRange();
     count = 0;
