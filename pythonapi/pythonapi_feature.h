@@ -31,6 +31,7 @@ namespace pythonapi{
 
         PyObject* __getitem__(std::string name);
         PyObject* __getitem__(quint32 colIndex);
+        PyObject* attribute(std::string name);
         PyObject* attribute(std::string name, qint64 defaultValue);
         PyObject* attribute(std::string name, double defaultValue);
         PyObject* attribute(std::string name, std::string defaultValue);

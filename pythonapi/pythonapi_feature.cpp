@@ -104,7 +104,7 @@ PyObject* Feature::__getitem__(quint32 colIndex){
 }
 
 PyObject* Feature::attribute(std::string name,const QVariant& defaultValue){
-    if (!defaultValue.isNull()){
+    if (defaultValue.isNull()){
         QVariant ret =  this->ptr()->cell(QString::fromStdString(name),false);
         if (!ret.isValid())
             throw std::out_of_range(QString("No attribute '%1' found").arg(name.c_str()).toStdString());
@@ -136,8 +136,12 @@ PyObject* Feature::attribute(std::string name,const QVariant& defaultValue){
     }
 }
 
-PyObject* Feature::attribute(std::string name, qint64 defaultValue){
-    return this->attribute(name,QVariant(defaultValue));
+PyObject* Feature::attribute(std::string name){
+    return this->attribute(name,QVariant());
+}
+
+PyObject* Feature::attribute(std::string name, qint64 defaultValue) {
+    return this->attribute(name, QVariant(defaultValue));
 }
 
 PyObject* Feature::attribute(std::string name, double defaultValue){
