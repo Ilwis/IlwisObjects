@@ -268,8 +268,14 @@ bool TableConnector::storeBinaryData(IlwisObject *obj)
     if(!ilw3tbl.openOutput(inf.absolutePath() + "/" + inf.baseName()  + ".tb#", output_file))
         return false;
 
+    int coveragekey_index = iUNDEF;
     for(int i=0; i < tbl->columnCount(); ++i) {
         const ColumnDefinition& def = const_cast<Table *>(tbl)->columndefinitionRef(i);
+        // in case of attribute table, the table domain is already set, so we do not need the COVERAGEKEYCOLUMN as column
+        if ((_attributeDomain != "") && (def.name() == COVERAGEKEYCOLUMN)) {
+            coveragekey_index = i;
+            continue;
+        }
         ilw3tbl.addStoreDefinition(def.datadef());
     }
     quint32 reccount = _selected.size() > 0 ? _selected.size() :  tbl->recordCount();
@@ -281,7 +287,8 @@ bool TableConnector::storeBinaryData(IlwisObject *obj)
         else{
             rec = tbl->record(y);
         }
-
+        if (coveragekey_index != iUNDEF)
+            rec.erase(rec.begin() + coveragekey_index);
         ilw3tbl.storeRecord(output_file, rec, skip);
 
     }
@@ -314,8 +321,12 @@ bool TableConnector::storeMetaData(IlwisObject *obj, const IOOptions &options)
     int reduceColumns = 0; // the featured_id column will not be go the ilwis3, useless info at that level
     quint32 reccount = _selected.size() > 0 ? _selected.size() :  tbl->recordCount();
     QString domname = _attributeDomain;
-    if ( domname == "" )
+    if (domname == "")
         domname = "none.dom";
+    else
+        // in case of attribute table, the table domain is already set, so we do not need the COVERAGEKEYCOLUMN as column
+        reduceColumns++;
+
     _odf->setKeyValue("Ilwis", "Type", "Table");
     _odf->setKeyValue("Ilwis", "Class", "Table");
     _odf->setKeyValue("Table", "Domain", domname);
@@ -393,6 +404,10 @@ bool TableConnector::storeColumns(const Table *tbl, const IOOptions &options) {
             }
         }
         QString colpostfix = def.name();
+        // in case of attribute table, the table domain is already set, so we do not need the COVERAGEKEYCOLUMN as column
+        if ((_attributeDomain != "") && (colpostfix == COVERAGEKEYCOLUMN))
+            continue;
+
         if ( colpostfix.indexOf(QRegExp("[.]")) != -1)
             colpostfix = "'" + colpostfix + "'";
         _odf->setKeyValue("TableStore", QString("Col%1").arg(i), colpostfix);
