@@ -35,13 +35,16 @@ int main(int argc, char *argv[])
         Ilwis::ExecutionContext ctx;
         Ilwis::SymbolTable syms;
         Ilwis::IRasterCoverage raster;
-        Ilwis::context()->setWorkingCatalog(Ilwis::ICatalog("file:///home/mschouwen/temp"));
-        //QString expr = QString("aaas3{format(ilwis3,map)}=aggregaterasterstatistics(%1,max)").arg("file:///home/mschouwen/temp/Sentinel2_CA_2018-11-18.dat");
-        QString expr = QString("aaas4{format(ilwis3,map)}=mirrorrotateraster(%1,mirrdiag)").arg("file:///home/mschouwen/data/ilwisdata/small9_6.mpr");
+        Ilwis::context()->setWorkingCatalog(Ilwis::ICatalog("file:///home/mschouwen/data/ilwisdata"));
+        QString expr = QString("aaas3{format(ilwis3,map)}=aggregaterasterstatistics(%1,max)").arg("file:///home/mschouwen/temp/Sentinel2_CA_2018-11-18.dat");
+        //QString expr = QString("aaas4{format(ilwis3,map)}=mirrorrotateraster(%1,mirrdiag)").arg("file:///home/mschouwen/data/ilwisdata/small9_6.mpr");
+        //QString expr = QString("aaas4{format(ilwis3,map)}=selection(%1,boundingbox(2 3, 5 6))").arg("file:///home/mschouwen/data/ilwisdata/small9_6.mpr");
         expr = "script " + expr;
         Ilwis::kernel()->startClock();
         Ilwis::commandhandler()->execute(expr, &ctx, syms) ;
-        Ilwis::kernel()->endClock();
+        //Ilwis::kernel()->endClock();
+        //raster.prepare("file:///home/mschouwen/data/ilwisdata/netcdf/urkdn2019.nc/NDVI");
+        auto v = raster->pix2value(Ilwis::Pixel(3,3,2));
 
 
         Ilwis::exitIlwis();

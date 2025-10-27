@@ -350,28 +350,34 @@ inline double RasterCoverageConnector::value(const char *block, int index) const
 
     return totalRead;
 }*/
-vector<double> RasterCoverageConnector::loadBlock(UPGrid& grid,std::unique_ptr<QFile> &file, int y, quint32 z) {
+vector<double> RasterCoverageConnector::loadBlock(UPGrid& grid,RasterCoverage *raster,std::unique_ptr<QFile> &file, int y, quint32 z) {
     auto lines = grid->linesPerBlock(y);
     //quint64 blockNr = int((y / grid->blockCacheLimit()));
-    auto blockSizeBytes = lines * grid->size().xsize() * _storesize;
-    qint64 seekPos = y * grid->size().xsize() * _storesize ;
+    auto blockSizeBytes = lines * raster->size().xsize() * _storesize;
+    qint64 seekPos = y * raster->size().xsize() *  _storesize ;
 
     if (file->seek(seekPos)) {
         QByteArray bytes = file->read(blockSizeBytes);
-        quint32 noItems = lines * grid->size().xsize();
+        quint32 noItems = grid->size().linearSize();
         if (noItems != iUNDEF) {
             vector<double> values(noItems);
-            for (quint32 i = 0; i < noItems; ++i) {
-                double v = value(bytes.constData(), i);
-                if (_converter.isNeutral()) {
-
-                    if (v != iILW3UNDEF && v != shILW3UNDEF)
-                        values[i] = v;
+            int idx = 0;
+            auto miny = grid->igrid()->boundingBox().min_corner().y;
+            auto minx = grid->igrid()->boundingBox().min_corner().x;
+            for(quint32 y = miny; y <= grid->igrid()->boundingBox().max_corner().y; ++y){
+                for(quint32 x = minx; x <= grid->igrid()->boundingBox().max_corner().x; ++x){
+                    auto pos = (y - miny) * raster->size().xsize() + x;
+                    double v = value(bytes.constData(), pos);
+                    if (_converter.isNeutral()) {
+                        if (v != iILW3UNDEF && v != shILW3UNDEF)
+                            values[idx] = v;
+                        else
+                            values[idx] = rUNDEF;
+                    }
                     else
-                        values[i] = rUNDEF;
+                        values[idx] = _converter.raw2real(v);
+                    ++idx;
                 }
-                else
-                    values[i] = _converter.raw2real(v);
             }
             return values;
         } // else we are trying to read beyond the available data, perhaps because a new band was added; just return
@@ -418,20 +424,20 @@ bool RasterCoverageConnector::loadData(IlwisObject* data, const IOOptions &optio
     }
 
     quint32 z = options.contains("z") ? options["z"].toUInt(): 0;
-    quint32 y = options.contains("y") ? options["y"].toUInt(): 0;
+    quint32 blockFloor = options.contains("y") ? options["y"].toUInt(): 0;
     QString orientation = options.contains("orientation") ? options["orientation"].toString(): "XYZ";
     if (orientation == "ZXY"){
 
         std::vector<double> block;
         for(quint32 lz = 0; lz < _openFiles.size(); ++lz){
-               auto values = loadBlock(grid, _openFiles[lz], y , lz);
+               auto values = loadBlock(grid, raster, _openFiles[lz], blockFloor , lz);
                block.insert(block.end(), std::make_move_iterator(values.begin()), std::make_move_iterator(values.end()));
 
         }
-        grid->setBlockData(z, y, block);
+        grid->setBlockData(z, blockFloor, block);
     }else {
-           auto values = loadBlock(grid, _openFiles[z], y , z);
-           grid->setBlockData(z, y, values);
+           auto values = loadBlock(grid, raster, _openFiles[z], blockFloor , z);
+           grid->setBlockData(z, blockFloor, values);
     }
     if ( raster->attributeTable().isValid()) {
         ITable tbl = raster->attributeTable();

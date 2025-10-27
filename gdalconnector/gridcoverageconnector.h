@@ -49,7 +49,7 @@ public:
 
 
     
-    void getData(quint32 bandIndex, Ilwis::RasterCoverage *raster, quint32 y, char *block);
+    void getData(quint32 startBand, quint32 noOfBands, Ilwis::RasterCoverage *raster, quint32 y, char *block);
 
 private:
     GDALDataType _gdalValueType = GDT_Unknown;
@@ -143,8 +143,8 @@ private:
     bool loadDriver();
     DataDefinition createDataDef(double vmin, double vmax, double resolution, bool accurate, GdalOffsetScale gdalOffsetScale);
     DataDefinition createDataDefColor(std::map<int, int> &vminRaster, std::map<int, int> &vmaxRaster);
-    void loadNumericBlock(quint32 yNormalized, quint32 linesPerBlock, char *block, Ilwis::RasterCoverage *raster, int bandIndex) const;
-    void loadColorBlock(quint32 bandindex, quint32 yNormalized, quint32 linesPerBlock, char *block, Ilwis::RasterCoverage *raster) const;
+    void loadNumericBlock(quint32 yNormalized, quint32 linesPerBlock, char *block, Ilwis::RasterCoverage *raster, int startBand, quint32 noOfBands) const;
+    void loadColorBlock(quint32 bandindex, quint32 noOfBands, quint32 yNormalized, quint32 linesPerBlock, char *block, Ilwis::RasterCoverage *raster) const;
     bool handleNumericCase(const Size<> &rastersize, RasterCoverage *raster);
     bool handleColorCase(const Size<> &rastersize, RasterCoverage *raster, GDALColorInterp colorType);
     bool handlePaletteCase(Size<> &rastersize, RasterCoverage *raster);

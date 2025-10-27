@@ -213,7 +213,9 @@ void PixelIterator::init() {
     bool inside = contains(Pixel(_x,_y, _z));
     _isValid = inside;
     _xChanged = _yChanged = _zChanged = false;
-    _grid->setOrientation(_flow == Flow::fZXY ? Grid::Orientation::oZXY : Grid::Orientation::oXYZ);
+    auto ori = _flow == Flow::fZXY ? Grid::Orientation::oZXY : Grid::Orientation::oXYZ;
+    _grid->prepare(_raster->resource().id(), _box.size(), ori, _box);
+    //_grid->setOrientation(_flow == Flow::fZXY ? Grid::Orientation::oZXY : Grid::Orientation::oXYZ);
 }
 
 bool PixelIterator::moveXY(qint64 delta){

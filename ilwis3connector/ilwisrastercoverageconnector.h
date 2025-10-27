@@ -47,7 +47,7 @@ private:
     bool storeMetaDataMapList(Ilwis::IlwisObject *obj);
     QString getGrfName(const IRasterCoverage &raster);
     bool setDataType(IlwisObject *data, const Ilwis::IOOptions &options);
-    std::vector<double> loadBlock(UPGrid &grid, std::unique_ptr<QFile> &file, int y, quint32 z);
+    std::vector<double> loadBlock(UPGrid &grid, RasterCoverage *raster, std::unique_ptr<QFile> &file, int y, quint32 z);
     void updateConverter(const IniFile & odf);
 
     template<typename T> bool save(std::ofstream& output_file,const RawConverter& conv, const IRasterCoverage& raster, const Size<>& sz) const{

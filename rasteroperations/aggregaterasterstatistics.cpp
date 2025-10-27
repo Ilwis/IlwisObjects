@@ -171,10 +171,15 @@ bool AggregateRasterStatistics::execute(ExecutionContext *ctx, SymbolTable& symT
 			++iterIn;
 			xchanged = iterIn.xchanged();
 		}
-		updateTranquilizer(++count, 100);
-		value = zcolumn.size() > 0 ? _statisticsFunction(zcolumn) : rUNDEF;
+        updateTranquilizer(++count, 100);
+
+        value = zcolumn.size() > 0 ? _statisticsFunction(zcolumn) : rUNDEF;
+        if ( iterIn.ychanged()){
+            qDebug() << "stop";
+        }
 		zcolumn.clear(); // next column
 		xchanged = false; // reset flag as we are in the next column now
+
 	}
 	_outputRaster->statistics(PIXELVALUE, ContainerStatistics<double>::pBASIC);
 

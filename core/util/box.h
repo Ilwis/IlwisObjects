@@ -71,6 +71,11 @@ public:
     }
 
     template<typename T> Box(const Size<T>& sz) : _min_corner(PointType(0,0,0)),_max_corner(PointType(sz.xsize()-1, sz.ysize()-1,sz.zsize()-1)){
+        if ( sz.isValid()){
+            _max_corner = PointType(sz.xsize() - 1, sz.ysize() - 1, sz.zsize() - 1);
+        }else{
+            *this = Box() ;
+        }
     }
 
     /*!

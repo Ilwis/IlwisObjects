@@ -579,7 +579,8 @@ HEADERS += \
    ./core/geos/include/geos/platform.h.in \
    ./core/geos/include/geos/platform.h.vc \
    ./core/geos/include/geos/version.h.in \
-   ./core/geos/include/geos/version.h.vc
+   ./core/geos/include/geos/version.h.vc \
+   core/util/relativevector.h
 
 DISTFILES += \
     ./core/geos/include/config.h.in \
