@@ -16,8 +16,8 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{75AE6DAB-1B39-49A0-B59C-8BC06642DAB0}</ProjectGuid>
     <Keyword>QtVS_v304</Keyword>
-    <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">10.0.19041.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">10.0.19041.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">10.0</WindowsTargetPlatformVersion>
     <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -105,7 +105,7 @@
     <Link>
       <AdditionalDependencies>..\libraries\release\ilwiscore.lib;$(QTDIR)\lib\Qt5Gui.lib;$(QTDIR)\lib\Qt5Sql.lib;$(QTDIR)\lib\Qt5Network.lib;$(QTDIR)\lib\Qt5Concurrent.lib;$(QTDIR)\lib\Qt5Core.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;D:\Projects\Ilwis\ilwisobjects\libraries\release;$(QTDIR)\lib;%(AdditionalLibraryDirectories)
-	  </AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
