@@ -1008,7 +1008,8 @@ bool FeatureConnector::storeMetaData(FeatureCoverage *fcov, IlwisTypes type) {
         datadef.domain(indexdom);
         QFileInfo inf ( _resource.url(true).toLocalFile());
         QString filename = context()->workingCatalog()->filesystemLocation().toLocalFile() + "/" + inf.baseName() + ".dom";
-        indexdom->connectTo(filename,"domain","ilwis3", Ilwis::IlwisObject::cmOUTPUT);
+        QUrl domPath = QUrl::fromLocalFile(filename);
+        indexdom->connectTo(domPath,"domain","ilwis3", Ilwis::IlwisObject::cmOUTPUT);
         indexdom->store();
     }
     bool isMulti = (fcov->featureTypes() & (fcov->featureTypes() - 1)) != 0;
