@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="4.0"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
@@ -251,7 +252,7 @@ echo sys.path.append(path)&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
 echo path = os.path.dirname(__file__)&gt;&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
 echo os.environ["PATH"] = path + os.pathsep + os.environ["PATH"]&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
 echo sys.path.append(path)&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
-echo path = os.path.normpath(r'$(LocalDebuggerWorkingDirectory)../output/debug/bin/')&gt;&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
+echo path = os.path.normpath(r'$(ProjectDir)../output/debug/bin/')&gt;&gt; ..\temp\GeneratedFiles\Debug\pythonapi\temp.py
 echo os.environ["PATH"] = path + os.pathsep + os.environ["PATH"]&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
 echo sys.path.append(path)&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
 echo path = path.replace('\\','/') + '/'&gt;&gt;..\temp\GeneratedFiles\Debug\pythonapi\temp.py
