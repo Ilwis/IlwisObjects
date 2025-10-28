@@ -979,6 +979,20 @@ void FeatureConnector::countPlainGeometries(FeatureCoverage *fcov, quint32 & poi
     }
 }
 
+INamedIdDomain setupIDRange(QString name, quint32 numberOfItems, QString featureTypeName) {
+    INamedIdDomain indexdom;
+    indexdom.prepare();
+    indexdom->name(name);
+    NamedIdentifierRange range;
+    for (quint32 i = 0; i < numberOfItems; ++i) {
+        QString itemname = QString("%1_%2").arg(featureTypeName).arg(i);
+        range << itemname;
+    }
+    indexdom->setRange(range);
+
+    return indexdom;
+}
+
 bool FeatureConnector::storeMetaData(FeatureCoverage *fcov, IlwisTypes type) {
     if ( type == itUNKNOWN)
         return true;//if type is itUNKNOWN we dont store
@@ -995,16 +1009,8 @@ bool FeatureConnector::storeMetaData(FeatureCoverage *fcov, IlwisTypes type) {
             datadef = DataDefinition(coldef.datadef().domain(),coldef.datadef().range()->clone());
     }
     if ( !datadef.isValid()) {
-        INamedIdDomain indexdom;
-        indexdom.prepare();
-        indexdom->name(fcov->name());
-        NamedIdentifierRange range;
-        for(quint32 i=0; i < fcov->featureCount(type); ++i){
-            QStringList parts = Ilwis3Connector::ilwis3ClassName(type).split(" ");
-            QString itemname = QString("%1_%2").arg(parts[0]).arg(i);
-            range << itemname;
-        }
-        indexdom->setRange(range);
+        QStringList parts = Ilwis3Connector::ilwis3ClassName(type).split(" ");
+        INamedIdDomain indexdom = setupIDRange(fcov->name(), fcov->featureCount(type), parts[0]);
         datadef.domain(indexdom);
         QFileInfo inf ( _resource.url(true).toLocalFile());
         QString filename = context()->workingCatalog()->filesystemLocation().toLocalFile() + "/" + inf.baseName() + ".dom";
