@@ -216,7 +216,7 @@ bool Ilwis3ObjectFactory::fillDomainRecord(const QStringList& parts, InternalDat
     if ( parts[1] == "") // not necessarily corrupt, just an unfinished record
         return true;
    QString parms = QString("'%1','%2','domain','ilwis3'").arg(parts[1],parts[0]);
-   QString stmt = QString("INSERT INTO aliasses VALUES(%1)").arg(parms);
+   QString stmt = QString("INSERT INTO aliases VALUES(%1)").arg(parms);
 
    return doQuery(stmt, internalDb);
 }
@@ -229,7 +229,7 @@ bool Ilwis3ObjectFactory::fillEllipsoidRecord(const QStringList& parts, Internal
     if ( parts[1] == "") // not necessarily corrupt, just an unfinished record
         return true;
    QString parms = QString("'%1','%2','ellipsoid','ilwis3'").arg(parts[0],parts[1]);
-   QString stmt = QString("INSERT INTO aliasses VALUES(%1)").arg(parms);
+   QString stmt = QString("INSERT INTO aliases VALUES(%1)").arg(parms);
 
    return doQuery(stmt, internalDb);
 }
@@ -242,7 +242,7 @@ bool Ilwis3ObjectFactory::fillProjectionRecord(const QStringList& parts, Interna
     if ( parts[1] == "") // not necessarily corrupt, just an unfinished record
         return true;
    QString parms = QString("'%1','%2','projection','ilwis3'").arg(parts[0],parts[1]);
-   QString stmt = QString("INSERT INTO aliasses VALUES(%1)").arg(parms);
+   QString stmt = QString("INSERT INTO aliases VALUES(%1)").arg(parms);
 
    return doQuery(stmt, internalDb);
 }
@@ -258,7 +258,7 @@ bool Ilwis3ObjectFactory::fillDatumRecord(const QStringList& parts, InternalData
     if ( parts[1] != "")
        id += "|" + parts[1];
     QString parms = QString("'%1','%2','datum','ilwis3'").arg(id,parts[2]);
-    QString stmt = QString("INSERT INTO aliasses VALUES(%1)").arg(parms);
+    QString stmt = QString("INSERT INTO aliases VALUES(%1)").arg(parms);
 
     return doQuery(stmt, internalDb);
 
