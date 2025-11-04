@@ -735,7 +735,10 @@ bool RasterCoverageConnector::storeMetaData( IlwisObject *obj, const IOOptions& 
         //QScopedPointer<TableConnector> conn(createTableStoreConnector(attTable, raster.ptr(), itRASTER,basename.baseName()));
         //conn->storeMetaData(attTable.ptr(),options);
         createTableStoreConnector(attTable, raster.ptr(), itRASTER,basename.baseName());
-        attTable->store({"storemode",IlwisObject::smMETADATA});
+        IOOptions options;
+        options.addOption({ "storemode",IlwisObject::smMETADATA });
+        options.addOption({ "asattrib", 1 });
+        attTable->store(options);
     }
 
     QFileInfo inf(_resource.toLocalFile());

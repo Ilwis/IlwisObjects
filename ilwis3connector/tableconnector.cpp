@@ -323,9 +323,11 @@ bool TableConnector::storeMetaData(IlwisObject *obj, const IOOptions &options)
     QString domname = _attributeDomain;
     if (domname == "")
         domname = "none.dom";
-    else
+    else {
         // in case of attribute table, the table domain is already set, so we do not need the COVERAGEKEYCOLUMN as column
-        reduceColumns++;
+        if (!options.contains("asattrib"))   // only set by raster with attributetable
+            reduceColumns++;
+    }
 
     _odf->setKeyValue("Ilwis", "Type", "Table");
     _odf->setKeyValue("Ilwis", "Class", "Table");
