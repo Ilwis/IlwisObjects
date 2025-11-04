@@ -26,8 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include <QSqlField>
 #include <QThread>
 #include <QDir>
-#include <QSqlQuery>
-#include <QSqlError>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -76,7 +74,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "operation.h"
 #include "tranquilizer.h"
 #include "tranquilizerfactory.h"
-#include "operationmetadata.h"
 #include "modeller/workflownode.h"
 #include "modeller/workflow.h"
 #include "modeller/applicationmodel.h"
@@ -164,7 +161,12 @@ void Kernel::init() {
 
 	_dbPublic.reset(new PublicDatabase(QSqlDatabase::addDatabase("QSQLITE")));
     _dbPublic->setHostName("localhost");
+#ifdef CATALOG_DEBUG
+	QString loc = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/ilwis_catalog.db";
+    _dbPublic->setDatabaseName(loc);
+#else
     _dbPublic->setDatabaseName(":memory:");
+#endif // CATALOG_DEBUG
     _dbPublic->open();
 	
 	QSqlQuery stmt(*_dbPublic.get());
