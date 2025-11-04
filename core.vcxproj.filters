@@ -3321,7 +3321,7 @@
     <None Include="core\resources\spectral_library_metadata.json">
       <Filter>data</Filter>
     </None>
-    <None Include="core\resources\teritories.csv">
+    <None Include="core\resources\territories.csv">
       <Filter>data</Filter>
     </None>
     <None Include="core\resources\classifications\ceres_igbp_type1.json">

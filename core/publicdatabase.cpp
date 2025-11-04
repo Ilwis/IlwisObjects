@@ -55,7 +55,7 @@ void PublicDatabase::prepare() {
             cardinalty INTEGER,flagged INTEGER,description TEXT,icon TEXT)";
             sql.exec(stmt);
 
-    stmt = "create table aliasses (alias TEXT, code TEXT, type TEXT, source TEXT)";
+    stmt = "create table aliases (alias TEXT, code TEXT, type TEXT, source TEXT)";
     sql.exec(stmt);
 
     stmt = "create table workspaces (workspaceid INTEGER, description TEXT)";
@@ -161,7 +161,7 @@ void PublicDatabase::prepare() {
             proj_params TEXT NOT NULL)";
             doQuery(stmt, sql);
 
-    stmt = "CREATE TABLE teritories ( \
+    stmt = "CREATE TABLE territories ( \
             name TEXT NOT NULL PRIMARY KEY, \
             code TEXT, \
             officialname TEXT,\
@@ -207,7 +207,7 @@ bool PublicDatabase::code2Record(const QString &code, const QString &table, QSql
 
 QString PublicDatabase::findAlias(const QString &name, const QString &type, const QString &nspace)
 {
-    QString query = QString("Select code from aliasses where alias='%1' and type='%2' and source='%3'").arg(name).arg(type).arg(nspace);
+    QString query = QString("Select code from aliases where alias='%1' and type='%2' and source='%3'").arg(name).arg(type).arg(nspace);
     InternalDatabaseConnection db(query);
     if ( db.exec(query)) {
         if ( db.next())
@@ -225,7 +225,7 @@ void PublicDatabase::loadPublicTables() {
     insertFile("filters.csv",sqlPublic);
     insertFile("codes_with_latlon_order.csv",sqlPublic);
     insertFile("representations.csv", sqlPublic);
-    insertFile("teritories.csv", sqlPublic); 
+    insertFile("territories.csv", sqlPublic); 
     insertProj4Epsg(sqlPublic);
     insertItemDomains(sqlPublic);
 
@@ -269,7 +269,7 @@ void PublicDatabase::loadAdjustments() {
 
 void PublicDatabase::addRegionallEnvelopes() {
 	InternalDatabaseConnection db;
-    QString query = "Select * from teritories where type='country'";
+    QString query = "Select * from territories where type='country'";
     struct Info{
         Info(const QString& name="", const Envelope& env=Envelope()) : _continent(name),_env(env) {}
         QString _continent;
@@ -292,9 +292,9 @@ void PublicDatabase::addRegionallEnvelopes() {
         QString parms = QString("'%1','%2','%3','%4','%5',%6,%7,%8,%9,'%10'").arg(region.first).arg(region.first).arg("")
                 .arg(region.second._continent).arg("").arg(region.second._env.min_corner().x).arg(region.second._env.min_corner().y) 
                 .arg(region.second._env.max_corner().x).arg(region.second._env.max_corner().y).arg("region");
-        QString stmt = QString("INSERT INTO teritories VALUES(%1)").arg(parms);
+        QString stmt = QString("INSERT INTO territories VALUES(%1)").arg(parms);
         if(!db.exec(stmt)) {
-            kernel()->issues()->log(TR("Possible illegal records in teritories.csv at ") + region.first);
+            kernel()->issues()->log(TR("Possible illegal records in territories.csv at ") + region.first);
         }
     }
 
@@ -462,7 +462,7 @@ void PublicDatabase::insertFile(const QString& filename, QSqlQuery& sqlPublic) {
             ok = fillEpsgWithLatLonAxesOrderRecord(parts, sqlPublic);
         else if ( filename == "representations.csv"){
             ok = fillRepresentationRecord(parts, sqlPublic);
-        } else if ( filename == "teritories.csv"){
+        } else if ( filename == "territories.csv"){
             ok = fillTeritoryRecord(parts, sqlPublic); 
         }
         if (!ok)
@@ -473,10 +473,10 @@ void PublicDatabase::insertFile(const QString& filename, QSqlQuery& sqlPublic) {
 bool PublicDatabase::fillTeritoryRecord(const QStringList& parts, QSqlQuery &sqlPublic){
     if ( parts.size() == 10) {
         QString parms = QString("'%1','%2','%3','%4','%5',%6,%7,%8,%9,'%10'").arg(parts[0],parts[1],parts[2], parts[3],parts[4],parts[5],parts[6],parts[7]).arg(parts[8],parts[9]);
-        QString stmt = QString("INSERT INTO teritories VALUES(%1)").arg(parms);
+        QString stmt = QString("INSERT INTO territories VALUES(%1)").arg(parms);
         if(!doQuery(stmt, sqlPublic))
             return false;
-        stmt = QString("INSERT INTO codes VALUES('%1', 'teritory')").arg(parts[1]);
+        stmt = QString("INSERT INTO codes VALUES('%1', 'territory')").arg(parts[1]);
         return doQuery(stmt, sqlPublic);
     }
     kernel()->issues()->log(TR(ERR_INVALID_RECORD_SIZE_IN).arg("representations.csv"),IssueObject::itCritical);
