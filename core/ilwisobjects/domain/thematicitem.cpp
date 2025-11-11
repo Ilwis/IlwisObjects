@@ -35,8 +35,8 @@ inline bool operator == (const Ilwis::ThematicItem& item1, const Ilwis::Thematic
 
 ThematicItem::ThematicItem()
 {
-    code(sUNDEF);
-    description(sUNDEF);
+    code("");
+    description("");
 }
 
 ThematicItem::ThematicItem(const QStringList& parts, quint32 rawvalue) : NamedIdentifier(sUNDEF, rawvalue) {
