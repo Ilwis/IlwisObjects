@@ -346,13 +346,13 @@ inline char *BinaryIlwis3Table::moveTo(int row, const  ColumnInfo& fld) const{
 
 bool BinaryIlwis3Table::openOutput(const QString& basename, std::ofstream& output_file) {
     QFileInfo inf(basename);
-//    QString dir = context()->workingCatalog()->location().toLocalFile();
-//    QString filename = dir + "/" + inf.fileName();
     output_file.open(basename.toLatin1(),ios_base::out | ios_base::binary | ios_base::trunc);
     if ( !output_file.is_open())
         return ERROR1(ERR_COULD_NOT_OPEN_WRITING_1,basename);
     char header[128];
-    memset(header, 0, 128);
+    memset(header, 32, 128);
+    memcpy(header, "ILWIS 2.00 Table", 16);
+    header[127] = char(0x1a);
     output_file.write(header,128);
 
     return true;
