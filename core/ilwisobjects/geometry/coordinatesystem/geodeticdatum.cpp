@@ -104,6 +104,7 @@ LatLon GeodeticDatum::llToWGS84(const LatLon& ll, const Ellipsoid& ell) const
         break;
     }
     }
+    return LatLon();    // should not happen
 }
 
 LatLon GeodeticDatum::llFromWGS84(const LatLon& ll, const Ellipsoid& ell) const
@@ -135,6 +136,8 @@ LatLon GeodeticDatum::llFromWGS84(const LatLon& ll, const Ellipsoid& ell) const
         break;
     }
     }
+
+    return LatLon();    // should not happen
 }
 
 // Molodensky datum transformation
