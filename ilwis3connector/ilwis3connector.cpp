@@ -87,7 +87,9 @@ bool Ilwis3Connector::storeMetaData(const IlwisObject *obj, IlwisTypes type) con
     auto tm = IniFile::FormatElement((quint32)obj->createTime().toTime_t());
     _odf->setKeyValue("Ilwis","Time", tm );
     _odf->setKeyValue("Ilwis","Version", "3.1");
-    _odf->setKeyValue("Ilwis","Class", ilwis3ClassName(obj->ilwisType()));
+    QString className = ilwis3ClassName(obj->ilwisType());
+    if (className != sUNDEF)
+        _odf->setKeyValue("Ilwis","Class", className);
     if ( obj->ilwisType() & itCOVERAGE)
         _odf->setKeyValue("Ilwis","Type", "BaseMap");
     if ( (obj->ilwisType() & itTABLE))
