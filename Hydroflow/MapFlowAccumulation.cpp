@@ -1,4 +1,4 @@
-
+﻿
 /*IlwisObjects is a framework for analysis, processing and visualization of remote sensing and gis data
 Copyright (C) 2018  52n North
 
@@ -156,20 +156,20 @@ void MapFlowAccumulation::executeFlowAccumulation()
 	_iterEmptyRaster = OperationHelperRaster::initialize(_inRaster.as<IlwisObject>(), itRASTER, copylist);
 	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
 
-	iterDEM = PixelIterator(_inRaster, BoundingBox(), PixelIterator::fXYZ);
-	iterOut = PixelIterator(_outRaster, BoundingBox(), PixelIterator::fXYZ);
-	PixelIterator inEnd = iterDEM.end();
+	_iterDEM = PixelIterator(_inRaster, BoundingBox(), PixelIterator::fXYZ);
+	_iterOut = PixelIterator(_outRaster, BoundingBox(), PixelIterator::fXYZ);
+	PixelIterator inEnd = _iterDEM.end();
 
 	while (iterPos != inEnd)
 	{
 		Pixel pxl = iterPos.position();
-		if (*(iterDEM(pxl)) == 0)
-			iFlowAcc(pxl);
+		if (*(_iterDEM(pxl)) == 0)
+		{
+			//iFlowAcc(pxl);
+			iFlowAcc1(pxl);
+        }
 		iterPos++;
 	}
-
-
-
 }
 
 long MapFlowAccumulation::iFlowAcc(Pixel pxl)
@@ -195,7 +195,8 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 	long iRow = pxl.y;
 	long iCol = pxl.x;
 
-	Pixel pospxl;
+	Pixel pospxl(0,0,0);
+	
 	for (int iNr = 1; iNr < 9; iNr++)
 	{
 		isFlow = false;
@@ -207,7 +208,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow;
 				jn = iCol + 1;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 5;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 5;
 			}
 		}
 			  break;
@@ -216,7 +217,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow + 1;
 				jn = iCol + 1;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 6;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 6;
 			}
 		}
 			  break;
@@ -225,7 +226,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow + 1;
 				jn = iCol;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 7;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 7;
 			}
 		}
 			  break;
@@ -234,7 +235,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow + 1;
 				jn = iCol - 1;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 8;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 8;
 			}
 		}
 			  break;
@@ -243,7 +244,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow;
 				jn = iCol - 1;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 1;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 1;
 			}
 		}
 			  break;
@@ -252,7 +253,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow - 1;
 				jn = iCol - 1;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 2;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 2;
 			}
 		}
 			  break;
@@ -261,7 +262,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow - 1;
 				jn = iCol;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 3;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 3;
 			}
 		}
 			  break;
@@ -270,7 +271,7 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 			{
 				in = iRow - 1;
 				jn = iCol + 1;
-				isFlow = *(iterDEM(Pixel(jn, in, 0))) == 4;
+				isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 4;
 			}
 		}
 			  break;
@@ -282,8 +283,215 @@ long MapFlowAccumulation::iFlowAcc(Pixel pxl)
 
 		if (isFlow)
 			iAcc += iFlowAcc(pospxl);
-		*(iterOut(pxl)) = iAcc;
+		*(_iterOut(pxl)) = iAcc;
 	}
 	return iAcc;
 
 }
+
+long MapFlowAccumulation::iFlowAcc1(Pixel startPxl)
+{
+	std::stack<Pixel> visitStack;
+	std::stack<Pixel> postOrderStack;
+
+	visitStack.push(startPxl);
+
+	// Phase 1: Identify all contributing upstream pixels (Depth First Search)
+	while (!visitStack.empty())
+	{
+		Pixel curr = visitStack.top();
+		visitStack.pop();
+		postOrderStack.push(curr);
+
+		long iRow = curr.y;
+		long iCol = curr.x;
+
+		// Check all 8 neighbors
+		for (int iNr = 1; iNr <= 8; iNr++)
+		{
+			long in = 0, jn = 0;
+			bool isFlow = false;
+			switch (iNr) {
+			case 1: if (iCol != _xsize - 1) { in = iRow; jn = iCol + 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 5; } break;
+			case 2: if (iCol != _xsize - 1 && iRow != _ysize - 1) { in = iRow + 1; jn = iCol + 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 6; } break;
+			case 3: if (iRow != _ysize - 1) { in = iRow + 1; jn = iCol; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 7; } break;
+			case 4: if (iCol != 0 && iRow != _ysize - 1) { in = iRow + 1; jn = iCol - 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 8; } break;
+			case 5: if (iCol != 0) { in = iRow; jn = iCol - 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 1; } break;
+			case 6: if (iCol != 0 && iRow != 0) { in = iRow - 1; jn = iCol - 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 2; } break;
+			case 7: if (iRow != 0) { in = iRow - 1; jn = iCol; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 3; } break;
+			case 8: if (iCol != _xsize - 1 && iRow != 0) { in = iRow - 1; jn = iCol + 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 4; } break;
+			}
+
+			if (isFlow) {
+				visitStack.push(Pixel(jn, in, 0));
+			}
+		}
+	}
+
+	// Phase 2: Process pixels from headwaters down to the mouth (Reverse Post-Order)
+	// We reset the output for these specific pixels to 1 (the initial iAcc)
+	// then propagate their values downward.
+	while (!postOrderStack.empty())
+	{
+		Pixel curr = postOrderStack.top();
+		postOrderStack.pop();
+
+		// Start with the base value of 1
+		long currentAcc = 1;
+
+		long iRow = curr.y;
+		long iCol = curr.x;
+
+		// Re-check neighbors to sum up their ALREADY CALCULATED values
+		for (int iNr = 1; iNr <= 8; iNr++) {
+			long in = 0, jn = 0;
+			bool isFlow = false;
+			switch (iNr) {
+			case 1: if (iCol != _xsize - 1) { in = iRow; jn = iCol + 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 5; } break;
+			case 2: if (iCol != _xsize - 1 && iRow != _ysize - 1) { in = iRow + 1; jn = iCol + 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 6; } break;
+			case 3: if (iRow != _ysize - 1) { in = iRow + 1; jn = iCol; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 7; } break;
+			case 4: if (iCol != 0 && iRow != _ysize - 1) { in = iRow + 1; jn = iCol - 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 8; } break;
+			case 5: if (iCol != 0) { in = iRow; jn = iCol - 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 1; } break;
+			case 6: if (iCol != 0 && iRow != 0) { in = iRow - 1; jn = iCol - 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 2; } break;
+			case 7: if (iRow != 0) { in = iRow - 1; jn = iCol; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 3; } break;
+			case 8: if (iCol != _xsize - 1 && iRow != 0) { in = iRow - 1; jn = iCol + 1; isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 4; } break;
+			}
+
+			if (isFlow) {
+				// Add the result of the "recursive call" which is now stored in the output
+				currentAcc += *(_iterOut(Pixel(jn, in, 0)));
+			}
+		}
+		*(_iterOut(curr)) = currentAcc;
+	}
+
+	return *(_iterOut(startPxl));
+}
+
+//
+
+long MapFlowAccumulation::iFlowAcc2(Pixel start)
+{
+    const long W = _xsize;
+    const long H = _ysize;
+
+    struct Frame {
+        Pixel pxl;
+        int iNr;      // next neighbor index to process (1..8)
+        long acc;     // current accumulated value
+    };
+
+    auto in_bounds = [&](long x, long y) {
+        return x >= 0 && x < W && y >= 0 && y < H;
+        };
+
+    std::stack<Frame> st;
+    st.push({ start, 1, 1 });  // iAcc = 1 at start
+
+    long lastResult = 0;
+
+    while (!st.empty())
+    {
+        Frame& f = st.top();
+        Pixel pxl = f.pxl;
+        long iRow = pxl.y;
+        long iCol = pxl.x;
+
+        if (f.iNr > 8)
+        {
+            // Finished all neighbors of this pixel: this is the "return" of recursion
+            *(_iterOut(pxl)) = f.acc;
+            lastResult = f.acc;
+            st.pop();
+
+            // Add this result to parent frame (like iAcc += iFlowAcc(child))
+            if (!st.empty()) {
+                Frame& parent = st.top();
+                parent.acc += lastResult;
+                *(_iterOut(parent.pxl)) = parent.acc;  // original writes inside loop
+            }
+
+            continue;
+        }
+
+        // Process neighbor iNr (exactly like original switch)
+        int iNr = f.iNr;
+        f.iNr++;  // advance for next time
+
+        long in = iRow;
+        long jn = iCol;
+        bool isFlow = false;
+
+        switch (iNr)
+        {
+        case 1: // East
+            if (iCol != W - 1) {
+                in = iRow;
+                jn = iCol + 1;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 5;
+            }
+            break;
+        case 2: // South East
+            if (iCol != W - 1 && iRow != H - 1) {
+                in = iRow + 1;
+                jn = iCol + 1;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 6;
+            }
+            break;
+        case 3: // South
+            if (iRow != H - 1) {
+                in = iRow + 1;
+                jn = iCol;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 7;
+            }
+            break;
+        case 4: // South West
+            if (iCol != 0 && iRow != H - 1) {
+                in = iRow + 1;
+                jn = iCol - 1;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 8;
+            }
+            break;
+        case 5: // West
+            if (iCol != 0) {
+                in = iRow;
+                jn = iCol - 1;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 1;
+            }
+            break;
+        case 6: // North West
+            if (iCol != 0 && iRow != 0) {
+                in = iRow - 1;
+                jn = iCol - 1;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 2;
+            }
+            break;
+        case 7: // North
+            if (iRow != 0) {
+                in = iRow - 1;
+                jn = iCol;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 3;
+            }
+            break;
+        case 8: // North East
+            if (iCol != W - 1 && iRow != 0) {
+                in = iRow - 1;
+                jn = iCol + 1;
+                isFlow = *(_iterDEM(Pixel(jn, in, 0))) == 4;
+            }
+            break;
+        }
+
+        if (isFlow && in_bounds(jn, in)) {
+            // "Call" recursively: push new frame for neighbor
+            Pixel child(jn, in, 0);
+            st.push({ child, 1, 1 });  // iAcc = 1 in child
+        }
+
+        // Match original behavior: write current acc each loop
+        *(_iterOut(pxl)) = f.acc;
+    }
+
+    return lastResult;  // same as iAcc returned for 'start'
+}
+

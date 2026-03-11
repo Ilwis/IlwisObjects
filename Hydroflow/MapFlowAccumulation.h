@@ -39,15 +39,17 @@ namespace Ilwis {
 			IRasterCoverage _inRaster;
             IRasterCoverage _outRaster;
 
-            PixelIterator iterDEM;
-            PixelIterator iterOut;
+            PixelIterator _iterDEM;
+            PixelIterator _iterOut;
 
             long _xsize, _ysize;
 
         private:
             void executeFlowAccumulation();
             long iFlowAcc(Pixel pxl); //accumulated flow value for each cell 
-   
+            long iFlowAcc1(Pixel start);
+            long iFlowAcc2(Pixel start);
+
             NEW_OPERATION(MapFlowAccumulation);
         };
     }
