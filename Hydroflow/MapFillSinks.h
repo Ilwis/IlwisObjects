@@ -38,11 +38,9 @@ namespace Ilwis {
         private:
 			IRasterCoverage _inRaster;
             IRasterCoverage _outRaster;
-            IRasterCoverage _flagRaster;
 
             PixelIterator iterDEM;
             PixelIterator iterOut;
-            PixelIterator iterFlag;
 
             long _xsize, _ysize;
             long m_iFlag;
@@ -53,13 +51,13 @@ namespace Ilwis {
             double m_sinkHeight;
             FillMethod method;
 
-			void executeFillSink();
+            void executeFillSink();
             void SingleSinkFill();
-            void FlagNeighbors(Pixel pxl);
+            void FlagNeighbors(int x, int y);
             bool fLocateInitialSink(Pixel pxl);
-            void FindSinkContArea(Pixel pxl);
-            void FindSinkContArea2(Pixel pxl);
-            void FlagAdjaCell(Pixel pxl, std::vector<Pixel>& vAdj);
+            void FindSinkContArea(Pixel rcInitSink);
+            void FindSinkContArea2(Pixel rcInitSink);
+            void FlagAdjaCell(Pixel rcStartCell, std::vector<Pixel>& vAdj);
 
             void GroupSinksFill();
             bool fIdentifyOutletCell(Pixel rcSink, Pixel& rcOutlet);
@@ -67,13 +65,19 @@ namespace Ilwis {
             void FlatAreaFlag(Pixel rcOutlet);
             void DepresFill(Pixel rcOutlet);
             double getPixelValue(Pixel pxl);
-            void setPixelValue(Pixel pxl, double val);
+            void setPixelValue(int x, int y, double val);
             void CutTerrain(Pixel rcOutlet);
             double getCutValue(Pixel rcOutlet);
             bool onEdge(Pixel pix);
-            bool IsUndef(Pixel pxl);
-            void GetNeighborCells(Pixel pxl, std::vector<double>& vNeighbors);
 
+            double* m_inDem;
+            double* m_outDem;
+            int* m_flag;
+
+            inline int idx(int x, int y) const
+            {
+                return y * _xsize + x;
+            }
 
             NEW_OPERATION(MapFillSinks);
         };
