@@ -146,6 +146,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pythonapi313", "pythonapi31
 		{D3E35BD0-24B8-33B1-84F8-218783A77FAC} = {D3E35BD0-24B8-33B1-84F8-218783A77FAC}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pythonapi314", "pythonapi314.vcxproj", "{30EEF5F6-7087-4843-A437-117A2A8C3501}"
+	ProjectSection(ProjectDependencies) = postProject
+		{AA3CE33D-3C42-41FD-9A14-15F97718B068} = {AA3CE33D-3C42-41FD-9A14-15F97718B068}
+		{D3E35BD0-24B8-33B1-84F8-218783A77FAC} = {D3E35BD0-24B8-33B1-84F8-218783A77FAC}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -252,12 +258,16 @@ Global
 		{AA3CE33D-3C42-41FD-9A14-15F97718B068}.Debug|x64.Build.0 = Debug|x64
 		{AA3CE33D-3C42-41FD-9A14-15F97718B068}.Release|x64.ActiveCfg = Release|x64
 		{AA3CE33D-3C42-41FD-9A14-15F97718B068}.Release|x64.Build.0 = Release|x64
+		{30EEF5F6-7087-4843-A437-117A2A8C3501}.Debug|x64.ActiveCfg = Debug|x64
+		{30EEF5F6-7087-4843-A437-117A2A8C3501}.Debug|x64.Build.0 = Debug|x64
+		{30EEF5F6-7087-4843-A437-117A2A8C3501}.Release|x64.ActiveCfg = Release|x64
+		{30EEF5F6-7087-4843-A437-117A2A8C3501}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {C38EC393-1AE2-41F5-922B-154E0612E72F}
 		Qt5Version = QT5MSVC_64
+		SolutionGuid = {C38EC393-1AE2-41F5-922B-154E0612E72F}
 	EndGlobalSection
 EndGlobal
