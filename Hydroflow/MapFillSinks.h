@@ -65,7 +65,6 @@ namespace Ilwis {
             void FlatAreaFlag(Pixel rcOutlet);
             void DepresFill(Pixel rcOutlet);
             double getPixelValue(Pixel pxl);
-            void setPixelValue(int x, int y, double val);
             void CutTerrain(Pixel rcOutlet);
             double getCutValue(Pixel rcOutlet);
             bool onEdge(Pixel pix);
