@@ -164,180 +164,281 @@ quint64 MapFlowDirection::createMetadata()
 void MapFlowDirection::executeFlowDirection()
 {
 	InitPars();
-	_xsize = _inRaster->size().xsize();
-	_ysize = _inRaster->size().ysize();
 
-	quint64 copylist = itRASTERSIZE | itENVELOPE | itINTEGER;
-	_flagRaster = OperationHelperRaster::initialize(_inRaster.as<IlwisObject>(), itRASTER, copylist);
+	m_inDem = new double[_xsize * _ysize];
+	m_flowDem = new double[_xsize * _ysize];
+	m_flag = new int[_xsize * _ysize];
 
-	//  iterpos is only used for remember iteration postion 
-	_iterEmptyRaster = OperationHelperRaster::initialize(_inRaster.as<IlwisObject>(), itRASTER, copylist);
-	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-
-	// ini flag value as 0;
-	iterFlowFlag = PixelIterator(_flagRaster, BoundingBox(), PixelIterator::fXYZ);
-	std::fill(iterFlowFlag, iterFlowFlag.end(), 0);
-
-	iterFlow = PixelIterator(_outRaster, BoundingBox(), PixelIterator::fXYZ);
-	iterDEM = PixelIterator(_inRaster, BoundingBox(), PixelIterator::fXYZ);
-	PixelIterator inEnd = iterDEM.end();
+	for (int y = 0; y < _ysize; y++)
+	{
+		for (int x = 0; x < _xsize; x++) 
+		{
+			double val = _inRaster->pix2value(Pixel(x, y, 0)); // replace with access
+			m_inDem[idx(x, y)] = val;
+			m_flowDem[idx(x, y)] = val;
+			m_flag[idx(x, y)] = 0;
+		}
+	}
 
 	if (m_fParallel) 
 	{
-		FlowDirectionAlgorithm fda(_inRaster, _outRaster, _iterEmptyRaster);
-		QString method = "height";
-		if (m_fmMethods == fmSlope)
-			method = "slope";
-		fda.calculate(method);
+		FlowDirectionAlgorithm fda(m_inDem, m_flowDem, _xsize,_ysize);
+		fda.calculate(m_fmMethods == fmSlope ? "slope" : "height");
 	}
 	else 
 	{
-		double rMax;
-		int iCout = 0;
-
-		while (iterPos != inEnd)
+		for (int y = 0; y < _ysize; ++y) 
 		{
-			Pixel pxl = iterPos.position();
-			//*(iterFlow(pxl)) = 0; // initial value
-
-			//if (rbDem[iCol] != rUNDEF) {
-			//Calculate slope/height diff. dh from 8-neighbors for the specified cell
-			//vValue - a vector containing slope/dh values for its 8 neighbors
-			std::vector<double> vValue;
-			FillArray(pxl, vValue);
-
-			//finds positions for elements with max value
-			std::vector<int> vPos;
-			rMax = rFindMaxLocation(vValue, vPos, iCout);
-
-			//examine the positions with max. value
-			//perform assigning flow direction algorithm.
-			*(iterFlow(pxl)) = iLookUp(rMax, iCout, vPos);
-
-			iterPos++;
-		}
-		//Ste flows to the flat areas
-		TreatFlatAreas();
-
-	}
-
-	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-
-	while (iterPos != inEnd)
-	{
-		Pixel pxl = iterPos.position();
-		if (onEdge(pxl) || *(iterFlow(pxl)) > 8)
-			*(iterFlow(pxl)) = 0;
-		
-		iterPos++;
-	}
-
-	// Convert from ilwis3 compatible matrix to ilwis4 compatible (0 becomes undef, and 1..8 become 0..7)
-
-	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-	while (iterPos != inEnd) {
-		Pixel pxl = iterPos.position();
-		*iterFlow(pxl) = (*iterFlow(pxl) == 0) ? rUNDEF : (*iterFlow(pxl) - 1);
-		iterPos++;
-	}
-}
-
-bool MapFlowDirection::onEdge(Pixel pix) 
-{
-	return pix.x == 0 || pix.x == _xsize - 1 ||
-		pix.y == 0 || pix.y == _ysize - 1;
-}
-
-
-void MapFlowDirection::FillArray(Pixel pxl, std::vector<double>& vValue)
-{
-	//For the specified cell[iRow, iCol], compute the slope/dh values among its 8-neighbors
-	//return the calculated slope/dh in vector vValue
-	//iNbRow - row number for the specified neighbor
-	//iNbCol - column number for the specified neighbor
-	//rCurH - elevation for the specified cell[iRow, iCol]
-	//rNb8H - elevation for the specified neighbor' cell[iNbRow, iNbCol]
-	//rValue - slope / height difference
-	//location number
-	//	-------
-	//	|6|7|8|
-	//	-------
-	//	|5| |1|
-	//	-------
-	//	|4|3|2|
-	//	-------
-	//
-	long iNbRow, iNbCol;
-	double rCurH, rNb8H, rValue;
-	rCurH = *(iterDEM(pxl));
-	for(int i= 0; i<8; i++)
-	{
-		switch (i)
-		{
-			case 0: {	//location 1/E
-				iNbRow = pxl.y;
-				iNbCol = pxl.x+1;
-			}
-			break;
-			case 1: { //location 2/SE
-				iNbRow = pxl.y+1;
-				iNbCol = pxl.x+1;
-			}
-			break;
-			case 2: {	//location 3/S
-				iNbRow = pxl.y+1;
-				iNbCol = pxl.x;
-			}
-			break;
-			case 3:{ //Location 4/SW
-				iNbRow = pxl.y+1;
-				iNbCol = pxl.x-1;
-			}
-			break;
-			case 4:{	//location 5/W
-				iNbRow = pxl.y;
-				iNbCol = pxl.x-1;
-			}
-			break;
-			case 5:{	//location 6/NW
-				iNbRow = pxl.y-1;
-				iNbCol = pxl.x-1;
-			}
-			break;
-			case 6:{	//location 7/N
-				iNbRow = pxl.y-1;
-				iNbCol = pxl.x;
-			}
-			break;
-			case 7:{	//location 8/NE
-				iNbRow = pxl.y-1;
-				iNbCol = pxl.x+1;
-			}
-			break;
-		}
-
-		Pixel pxlnb;
-		pxlnb.y = iNbRow;
-		pxlnb.x = iNbCol;
-		pxlnb.z = 0;
-		
-		rNb8H = *(iterDEM(pxlnb));
-		if (rNb8H == rUNDEF)
-			vValue.push_back(rUNDEF); //never flow to undefied cell
-		else{
-			switch(m_fmMethods)
+			for (int x = 0; x < _xsize; ++x)
 			{
-				case fmSlope:
-					rValue = rComputeSlope(rCurH, rNb8H,i+1);
-					break;
-				case fmHeight:
-					rValue = rComputeHeightDifference(rCurH,rNb8H);
-					break;
+				int offset = idx(x,y);
+
+				std::vector<double> vValue;
+				FillArray(x, y, vValue);
+
+				std::vector<int> vPos;
+				int iCout = 0;
+				double rMax = rFindMaxLocation(vValue, vPos, iCout);
+
+				m_flowDem[offset] = iLookUp(rMax, iCout, vPos);
 			}
+		}
+		TreatFlatAreas();
+	}
+
+	PixelIterator iterFlow = PixelIterator(_outRaster, BoundingBox(), PixelIterator::fXYZ);
+	// cleanup edges and rewrite raster pixel
+	for (int y = 0; y < _ysize; y++) 
+	{
+		for (int x = 0; x < _xsize; x++)
+		{
+
+			if (onEdge(x, y) || m_flowDem[idx(x, y)] > 8)
+				m_flowDem[idx(x, y)] = 0;
+
+			Pixel pxl(x, y, 0);
+			*iterFlow(pxl) = (m_flowDem[idx(x, y)] == 0) ? rUNDEF : (m_flowDem[idx(x,y)] - 1);
+
+		}
+	}
+	
+	delete[]m_inDem;
+	delete[]m_flowDem;
+	delete[]m_flag;
+
+}
+
+
+double MapFlowDirection::rFindMaxLocation(std::vector<double>& vValue, std::vector<int>& vPos, int& iCout)
+{
+	//finds the maximum value in the input vector
+		//returns the maximum value, number of elements with max.
+		//returns posision(s) for the element(s) with max. in a vector
+
+	std::vector<double>::iterator pos;
+
+	//returns the position of the first element with max. in vValue
+	pos = max_element(vValue.begin(), vValue.end());
+	double rMax = *pos;
+
+	//count number of elements with max
+	iCout = std::count(vValue.begin(), vValue.end(), rMax);
+
+	//find the first element with max value
+	pos = find(vValue.begin(), vValue.end(), rMax);
+	int iIndex = pos - vValue.begin();
+
+	while (pos != vValue.end())
+	{
+		vPos.push_back(iIndex);  //push it into a vector
+		pos = find(++pos, vValue.end(), rMax);
+		iIndex = pos - vValue.begin();
+	}
+	return rMax;
+}
+
+bool MapFlowDirection::onEdge(int x, int y)
+{
+	return x == 0 || x == _xsize - 1 ||
+		y == 0 || y == _ysize - 1;
+}
+
+
+void MapFlowDirection::FillArray(int x, int y, std::vector<double>& vValue)
+{
+	double rCurH = m_inDem[idx(x, y)];
+
+	int dx[8] = { 1,1,0,-1,-1,-1,0,1 };
+	int dy[8] = { 0,1,1,1,0,-1,-1,-1 };
+
+	for (int i = 0; i < 8; i++) 
+	{
+
+		int nx = x + dx[i];
+		int ny = y + dy[i];
+
+		double rNbH = m_inDem[idx(nx, ny)];
+
+		if (rNbH == rUNDEF) 
+		{
+			vValue.push_back(rUNDEF);
+		}
+		else 
+		{
+			double rValue = (m_fmMethods == fmSlope)
+				? rComputeSlope(rCurH, rNbH, i + 1)
+				: rComputeHeightDifference(rCurH, rNbH);
+
 			vValue.push_back(rValue);
 		}
 	}
 }
+
+
+void MapFlowDirection::SetFlowsInFlatArea(std::vector<int>& vOutlets)
+{
+	std::vector<int> vNbs; // Neighbors without flow direction
+
+	do
+	{
+		vNbs.clear();
+
+		// Use a standard index loop or iterator for the offsets
+		for (int offset : vOutlets)
+		{
+			m_flag[offset] = 0;
+		}
+
+		for (int offset : vOutlets)
+		{
+			int currX = offset % _xsize;
+			int currY = offset / _xsize;
+
+			int iNb = 0;
+			// Neighborhood iteration (3x3 grid)
+			for (int i = -1; i <= 1; ++i)
+			{
+				int nbY = currY + i;
+				for (int j = -1; j <= 1; ++j)
+				{
+					int nbX = currX + j;
+					int nbOffset = nbY * _xsize + nbX;
+
+					// Bounds check
+					if (nbX >= 0 && nbX < _xsize && nbY >= 0 && nbY < _ysize)
+					{
+						// Logic for flat area flow assignment
+						if (m_flowDem[nbOffset] == 9 &&
+							m_vFlowSelf[iNb] != m_flowDem[offset] &&
+							m_flag[nbOffset] == m_ContFlat)
+						{
+							m_flowDem[nbOffset] = m_vDirection[iNb];
+							vNbs.push_back(nbOffset);
+						}
+
+						if ((m_flag[nbOffset] == m_ContFlat) &&
+							!(isEven(iNb)) &&
+							m_vFlowSelf[iNb] != m_flowDem[offset])
+						{
+							m_flowDem[nbOffset] = m_vDirection[iNb];
+						}
+					}
+					iNb++;
+				}
+			}
+		}
+		vOutlets.swap(vNbs);
+	} while (!vOutlets.empty());
+}
+
+
+void MapFlowDirection::TreatFlatAreas()
+{
+	size_t totalPixels = (size_t)_xsize * _ysize;
+	std::fill(m_flag, m_flag + totalPixels, 0);
+	m_ContFlat = 0;
+
+	for (int y = 0; y < _ysize; ++y)
+	{
+		for (int x = 0; x < _xsize; ++x) 
+		{
+
+			if (!onEdge(x, y) && m_flowDem[idx(x,y)] == 9) 
+			{
+				std::vector<int> vOutlets;
+				m_vFlatIndices.clear(); // Store offsets instead of Pixels
+
+				LocateOutlets(x, y, vOutlets);
+
+				if (vOutlets.size() > 0) 
+				{
+					SetFlowsInFlatArea(vOutlets);
+				}
+				else 
+				{
+					for (int flatIdx : m_vFlatIndices)
+					{
+						m_flowDem[flatIdx] = 0;
+					}
+				}
+			}
+		}
+	}
+}
+
+void MapFlowDirection::LocateOutlets(int x, int y, std::vector<int>& vOutlets)
+{
+	std::vector<int> vStarters;
+	int startOffset = y * _xsize + x;
+	vStarters.push_back(startOffset);
+
+	double rHeight = m_inDem[startOffset];
+	m_ContFlat++;
+
+	while (!vStarters.empty())
+	{
+		std::vector<int> vNbs;
+		for (int currentOffset : vStarters) 
+		{
+			m_flag[currentOffset] = m_ContFlat;
+			m_vFlatIndices.push_back(currentOffset);
+
+			int currX = currentOffset % _xsize;
+			int currY = currentOffset / _xsize;
+
+			for (int i = -1; i <= 1; ++i) 
+			{
+				for (int j = -1; j <= 1; ++j) 
+				{
+					if (i == 0 && j == 0) continue;
+
+					int nbX = currX + j;
+					int nbY = currY + i;
+					int nbOffset = nbY * _xsize + nbX;
+
+					if (nbX < 0 || nbX >= _xsize || nbY < 0 || nbY >= _ysize) continue;
+
+					if (m_flag[nbOffset] != m_ContFlat) 
+					{
+						if (m_flowDem[nbOffset] == 9) 
+						{
+							m_flag[nbOffset] = m_ContFlat;
+							m_vFlatIndices.push_back(nbOffset);
+							vNbs.push_back(nbOffset);
+						}
+						else if (m_inDem[nbOffset] == rHeight && m_flowDem[nbOffset] != 0) 
+						{
+							m_flag[nbOffset] = m_ContFlat;
+							vOutlets.push_back(nbOffset);
+						}
+					}
+				}
+			}
+		}
+		vStarters = std::move(vNbs);
+	}
+}
+
 
 double MapFlowDirection::rComputeSlope(double rCurH, double rNbH, int iPos)
 {
@@ -370,156 +471,6 @@ bool MapFlowDirection::isInOneEdge(int iPos1, int iPos2, int iPos3, std::vector<
 		return fCondition1 && fCondition2 && fCondition3;
 }
 
-void MapFlowDirection::TreatFlatAreas()
-{
-		std::fill(iterFlowFlag, iterFlowFlag.end(), 0);
-		iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-		PixelIterator inEnd = iterDEM.end();
-
-		/*---For each area in the flat areas:
-		  ---Identify outlets in the flat area.
-		  ---Examine the neighbors in the flat area to the outlets.
-		  ---If a neighbor is in the flat area and
-		     has not been assigned a flow direction, its flow is set to the outlet.
-		  ---Locate neighbors without flow direction, in the flat area,
-			---to the neighbors that was evaluated in the previous step.
-			---Set their flows to the neighbors with flow direction.
-			---The procedure is repeated untill all the cells in
-			---the flat area have been evaluated.
-		*/
-
-		Pixel rcInitFlat;
-		m_ContFlat = 0;
-
-		while (iterPos != inEnd)
-		{
-			Pixel pxl = iterPos.position();
-			if ( !onEdge(pxl) && *(iterFlow(pxl)) == 9) //cell in flat area
-			{
-				std::vector<Pixel> vOutlets;
-				vOutlets.resize(0);
-
-				m_vFlat.resize(0);
-				rcInitFlat.y = pxl.y;
-				rcInitFlat.x = pxl.x;
-				rcInitFlat.z = 0;
-
-				LocateOutlets(rcInitFlat, vOutlets);
-
-				if (vOutlets.size() > 0)
-				{
-					SetFlowsInFlatArea(vOutlets);
-				}
-				else
-				{
-					for (std::vector<Pixel>::iterator pos = m_vFlat.begin();
-						pos < m_vFlat.end(); ++pos)
-					{
-						*(iterFlow(*pos)) = 0;  //make it UNDEF
-					}
-				}
-			}
-			iterPos++;
-		}
-
-}
-
-void MapFlowDirection::LocateOutlets(Pixel rcInitFlat, std::vector<Pixel>& vOutlets)
-{
-		//--Locate and Flag a continous flat area to m_vFlag
-		//--Locate and push the outlets to the flat area to vOutlets
-
-		std::vector<Pixel> vNbs;
-		std::vector<Pixel> vStarters;
-		vStarters.push_back(rcInitFlat);
-
-		double rHeight = *(iterDEM(rcInitFlat));
-		m_ContFlat++;
-
-		do
-		{
-			vNbs.resize(0);
-			for (std::vector<Pixel>::iterator pos = vStarters.begin();pos < vStarters.end(); ++pos)
-			{
-				Pixel rcNb;
-				rcNb.z = 0;
-				*(iterFlowFlag(*pos)) = m_ContFlat;
-				m_vFlat.push_back(*pos);
-
-				for (int i=-1; i<=1; ++i) 			//Evaluate neighbors in flat area
-				{
-					rcNb.y = pos->y + i;
-					for(int j=-1; j<=1; ++j)
-					{
-						rcNb.x = pos->x + j;
-
-						if (*(iterFlowFlag(rcNb)) != m_ContFlat) //has not been flagged
-						{
-							if (*(iterFlow(rcNb)) == 9) 				 //in flat area
-							{
-								*(iterFlowFlag(rcNb)) = m_ContFlat;
-									m_vFlat.push_back(rcNb);
-									vNbs.push_back(rcNb);
-							}
-							else if( *(iterDEM(rcNb)) == rHeight &&	( *(iterFlow(rcNb)) != 0) )
-							{
-								*(iterFlowFlag(rcNb)) = m_ContFlat;
-								vOutlets.push_back(rcNb);
-							}
-						}
-					}
-				}
-			}
-			vStarters.swap(vNbs);
-		}while(vNbs.size() != 0);
-}
-
-void MapFlowDirection::SetFlowsInFlatArea(std::vector<Pixel>& vOutlets)
-{
-		std::vector<Pixel> vNbs;	//Neighbors without flow direction to neighbors
-									//with flow direction in the flat area
-
-		do
-		{
-			vNbs.resize(0);
-			//for (vector<RowCol>::iterator pos = vOutlets.begin(); pos < vOutlets.end(); ++pos)
-			std::vector<Pixel>::iterator pos = vOutlets.begin();
-			for (;pos < vOutlets.end(); ++pos)
-			{
-				*(iterFlowFlag(*pos)) = 0;
-			}
-			for (pos = vOutlets.begin(); pos < vOutlets.end(); ++pos)
-			{
-				Pixel rcNb;
-				rcNb.z = 0;
-				int iNb = 0;
-				for (int i=-1; i<=1; ++i) 			//Evaluate neighbors in flat area
-				{
-					rcNb.y = pos->y + i;
-					for(int j=-1; j<=1; ++j)
-					{
-						rcNb.x = pos->x + j;
-						if (*(iterFlow(rcNb)) == 9 && 
-							m_vFlowSelf[iNb] != *(iterFlow(*pos)) &&
-							*(iterFlowFlag(rcNb)) == m_ContFlat)
-
-						{
-							*(iterFlow(rcNb)) = m_vDirection[iNb];
-							vNbs.push_back(rcNb);
-						}
-						if(( *(iterFlowFlag(rcNb)) == m_ContFlat) &&
-							  !(isEven(iNb)) &&
-							  m_vFlowSelf[iNb] != *(iterFlow(*pos)))
-						{
-							*(iterFlow(rcNb)) = m_vDirection[iNb];
-						}
-						iNb++;
-					}
-				}
-			}
-			vOutlets.swap(vNbs);
-		}while (vNbs.size() != 0);
-}
 
 void MapFlowDirection::InitPars()
 {
@@ -563,13 +514,15 @@ FlowDirectionAlgorithm::Method FlowDirectionAlgorithm::methodValueOf(QString val
 	return FlowDirectionAlgorithm::height;
 }
 
-FlowDirectionAlgorithm::FlowDirectionAlgorithm(IRasterCoverage inRaster, IRasterCoverage flowdirRaster, IRasterCoverage emptyRaster)
-	: _inRaster(inRaster)
-	, _flowdirRaster(flowdirRaster)
-	, _iterEmptyRaster(emptyRaster)
-	, flatcell(9)
+
+FlowDirectionAlgorithm::FlowDirectionAlgorithm(double* dem, double* flow, long xsz, long ysz)
+	: flatcell(9)
 	, flag(10)
 	, increment(1)
+	, _xsize(xsz)
+	, _ysize(ysz)
+	, m_inDem(dem)
+	, m_flowDem(flow)
 {
 	//	Location number				Order in m_vDirection
 	//	-------						-------	 looping order of the neighbors 	
@@ -589,15 +542,210 @@ FlowDirectionAlgorithm::FlowDirectionAlgorithm(IRasterCoverage inRaster, IRaster
 	Location[5] = 4;
 	Location[6] = 3;
 	Location[7] = 2;
-
-	_xsize = _inRaster->size().xsize();
-	_ysize = _inRaster->size().ysize();
-
 }
 
-bool FlowDirectionAlgorithm::onEdge(Pixel pix) {
-	return pix.x == 0 || pix.x == _xsize - 1 ||
-		pix.y == 0 || pix.y == _ysize - 1;
+
+void FlowDirectionAlgorithm::calculate(QString methodInput)
+{
+	QString sl = methodInput.toLower();
+	method = methodValueOf(sl);
+
+	// -------------------------------
+	// STEP 1: Initial flow direction
+	// -------------------------------
+	for (int y = 0; y < _ysize; y++) {
+		for (int x = 0; x < _xsize; x++) {
+
+			int idx = y * _xsize + x;
+			m_flowDem[idx] = noflow;
+
+			if (onEdge(x, y) || m_inDem[idx] == rUNDEF)
+				continue;
+
+			double listVal[8];
+			double max = maxAdj(x, y, listVal);
+
+			if (max > 0) {
+				std::vector<FlowDirection> listPos;
+				findDirection(listVal, max, listPos);
+				FlowDirection fd = getFlowDirection(listPos);
+				m_flowDem[idx] = Location[(unsigned char)fd];
+			}
+			else if (max == rUNDEF) {
+				m_flowDem[idx] = noflow;
+			}
+			else {
+				m_flowDem[idx] = flatcell;
+			}
+		}
+	}
+
+	// -------------------------------
+	// STEP 2: allocate gradients
+	// -------------------------------
+	double* grad1 = new double[_xsize * _ysize];
+	double* grad2 = new double[_xsize * _ysize];
+
+	std::fill(grad1, grad1 + _xsize * _ysize, 0.0);
+	std::fill(grad2, grad2 + _xsize * _ysize, 0.0);
+
+	// -------------------------------
+	// STEP 3: Flat area processing
+	// -------------------------------
+	for (int y = 0; y < _ysize; y++) {
+		for (int x = 0; x < _xsize; x++) {
+
+			//int idx = y * _xsize + x;
+
+			if (m_flowDem[idx(x,y)] == flatcell) {
+
+				std::vector<Cell> flatList;
+				std::vector<Cell> outletList;
+
+				locateOutlet(x, y, flatList, outletList);
+
+				if (!outletList.empty()) {
+
+					imposeGradient2LowerElevation(outletList, flatList, grad1);
+					imposeGradientFromElevation(flatList, grad2);
+
+					combineGradient(grad1, grad2, flatList);
+
+					assignFlowInFlat(flatList, grad2);
+
+					// assign outlet flows
+					for (auto& c : outletList) {
+						m_flowDem[idx(c.x,c.y)] = c.val;
+					}
+
+					// second pass
+					assignFlowInFlat(flatList, grad1);
+					iniGradient(grad1, grad2, flatList);
+
+				}
+			}
+		}
+	}
+
+	// -------------------------------
+	// STEP 4: cleanup edges
+	// -------------------------------
+	for (int y = 0; y < _ysize; y++) {
+		for (int x = 0; x < _xsize; x++) {
+
+			int idx = y * _xsize + x;
+
+			if (onEdge(x, y) || m_flowDem[idx] > 8)
+				m_flowDem[idx] = 0;
+		}
+	}
+
+	// -------------------------------
+	// STEP 5: cleanup memory
+	// -------------------------------
+	delete[] grad1;
+	delete[] grad2;
+}
+
+
+bool FlowDirectionAlgorithm::hasFlow(unsigned char flowdirection) 
+{
+	return flowdirection >= 1 && flowdirection <= 8;
+}
+
+bool FlowDirectionAlgorithm::onEdge(int x, int y) 
+{
+	return x == 0 || x == _xsize - 1 ||
+		y == 0 || y == _ysize - 1;
+}
+
+void FlowDirectionAlgorithm::findDirection(
+	double listA[], double val,
+	std::vector<FlowDirection>& listPos)
+{
+	for (int i = 0; i < 8; i++) {
+		if (listA[i] == val)
+			listPos.push_back(mapFlowLocation(i));
+	}
+}
+
+
+double FlowDirectionAlgorithm::maxAdj(int x, int y, double* gradient, double listVal[])
+{
+	double center = gradient[idx(x,y)];
+	double max = -1;
+	int index = 0;
+	int pos = 0;
+
+	for (int dy = -1; dy <= 1; dy++) {
+		for (int dx = -1; dx <= 1; dx++) {
+
+			pos++;
+			if (pos == 5) continue;
+
+			int nx = x + dx;
+			int ny = y + dy;
+
+			double val;
+
+			if (m_inDem[idx(nx,ny)] > m_inDem[idx(x,y)]) 
+				val = rUNDEF;
+			else 
+				val = computeHeightDifference(center,gradient[idx(nx,ny)]);
+
+			listVal[index++] = val;
+
+			if (val > max)
+				max = val;
+		}
+	}
+	return max;
+}
+
+double FlowDirectionAlgorithm::maxAdj(int x, int y, double listVal[])
+{
+	double center = m_inDem[idx(x,y)];
+	double max = -1;
+	int index = 0;
+	int pos = 0;
+
+	for (int dy = -1; dy <= 1; dy++) {
+		for (int dx = -1; dx <= 1; dx++) {
+
+			pos++;
+			if (pos == 5) continue;
+
+			int nx = x + dx;
+			int ny = y + dy;
+
+			double nheight = m_inDem[idx(nx,ny)];
+			if (nheight == rUNDEF)
+				return rUNDEF;
+
+			double val = (method == slope)
+				? computeSlope(center, nheight, pos)
+				: computeHeightDifference(center, nheight);
+
+			listVal[index++] = val;
+
+			if (val > max)
+				max = val;
+		}
+	}
+	return max;
+}
+
+
+//The slope is calculated by subscribing the neighbor's elevation value from the center
+//distance 1.14 is concerned for diagonal cells
+//Parameters
+//h1 - the elevation of the center cell
+//h2 - the elevation of the neighboring cell
+//pos - the location number according to flow direction definition in ILWIS 	
+//Returns - slope value of the center cell	
+double FlowDirectionAlgorithm::computeSlope(double h1, double h2, int pos)
+{
+	return isEven(pos) ? (h1 - h2) : (h1 - h2) / 1.41;
 }
 
 bool FlowDirectionAlgorithm::isEven(int elem)
@@ -605,34 +753,49 @@ bool FlowDirectionAlgorithm::isEven(int elem)
 	return elem % 2 == 0;
 }
 
-
-double MapFlowDirection::rFindMaxLocation(std::vector<double>& vValue, std::vector<int>& vPos, int& iCout)
+double FlowDirectionAlgorithm::computeHeightDifference(double h1, double h2)
 {
-	//finds the maximum value in the input vector
-		//returns the maximum value, number of elements with max.
-		//returns posision(s) for the element(s) with max. in a vector
-
-	std::vector<double>::iterator pos;
-
-	//returns the position of the first element with max. in vValue
-	pos = max_element(vValue.begin(), vValue.end());
-	double rMax = *pos;
-
-	//count number of elements with max
-	iCout = std::count(vValue.begin(), vValue.end(), rMax);
-
-	//find the first element with max value
-	pos = find(vValue.begin(), vValue.end(), rMax);
-	int iIndex = pos - vValue.begin();
-
-	while (pos != vValue.end())
-	{
-		vPos.push_back(iIndex);  //push it into a vector
-		pos = find(++pos, vValue.end(), rMax);
-		iIndex = pos - vValue.begin();
-	}
-	return rMax;
+	return h1 - h2;
 }
+
+//Examine the flow direction location to perform one of the following:
+//---1. if there are only two elements in the given list (maxium slop occurs in two neiboring cells):	
+//---2. if there are only two elements in the given list (maxium slop occurs in two neiboring cells):
+//make flow direction with S or W or E or N, if such a element exists in the given list
+//otherwise, make the flow direction with the first element in the list.
+//---3. if there are more than two cells with maximum slop, perform one of the following:
+//if three cells located in one edge, make the flow direction value with the middle cell of the edge, otherwise,
+//make flow direction with S or W or E or N, if such a element exists in the given list, otherwise
+//make the flow direction with the first element in the list 	
+//Parameters
+//	listPos - the list filled with flow directions
+//Returns - flow direction 	
+FlowDirectionAlgorithm::FlowDirection FlowDirectionAlgorithm::getFlowDirection(
+	const std::vector<FlowDirection>& listPos)
+{
+	if (listPos.size() == 1)
+		return listPos[0];
+
+	if (listPos.size() == 2) {
+		for (auto fd : listPos) {
+			if (fd == E || fd == S || fd == W || fd == N)
+				return fd;
+		}
+	}
+
+	if (isInOneEdge(listPos, SW, S, SE)) return S;
+	if (isInOneEdge(listPos, NW, W, SW)) return W;
+	if (isInOneEdge(listPos, NW, N, NE)) return N;
+	if (isInOneEdge(listPos, NE, E, SE)) return E;
+
+	for (auto fd : listPos) {
+		if (fd == E || fd == S || fd == W || fd == N)
+			return fd;
+	}
+
+	return listPos[0];
+}
+
 
 long MapFlowDirection::iLookUp(double rMax, int iCout, std::vector<int>& vPos)
 {
@@ -666,6 +829,7 @@ long MapFlowDirection::iLookUp(double rMax, int iCout, std::vector<int>& vPos)
 	return iPos;
 }
 
+
 int FlowDirectionAlgorithm::noflow = 0;
 
 bool FlowDirectionAlgorithm::isInOneEdge(const std::vector<FlowDirection>& listPos, FlowDirection fd1, FlowDirection fd2, FlowDirection fd3) {
@@ -677,567 +841,220 @@ bool FlowDirectionAlgorithm::isInOneEdge(const std::vector<FlowDirection>& listP
 	return fCondition1 && fCondition2 && fCondition3;
 }
 
-bool FlowDirectionAlgorithm::hasFlow(byte flowdirection) {
-	if (flowdirection >= 1 && flowdirection <= 8)
-		return true;
-	else
-		return false;
-}
 
-
-//Get the maximum value of the adjcent cells. if the elements of a list with the slope values with the eight neighboring cells
-//Parameters
-//		row - row number of the given cell
-//		col - column number of the given cell
-//		listVal - the list filled with the slop values against the eight neighboring cells	
-//Returns
-//		the maximum value     	
-double FlowDirectionAlgorithm::maxAdj(Pixel pxl, double listVal[]) 
+FlowDirectionAlgorithm::FlowDirection FlowDirectionAlgorithm::mapFlowLocation(int pos)
 {
-	int pos = 0;
-	int index = 0;
-	double val = 0, rheight, nheight;
-	rheight = *(iterDEM(pxl));
-	double max = -1;
-	Pixel pospxl;
-
-	for (int i = -1; i <= 1; ++i) 
-	{
-		for (int j = -1; j <= 1; ++j) 
-		{
-			pospxl.x = pxl.x + j;
-			pospxl.y = pxl.y + i;
-			pospxl.z = 0;
-			pos = pos + 1;
-			if (pos != 5) {
-				if (*(iterDEM(pospxl)) == rUNDEF)
-					return rUNDEF;
-				nheight = *(iterDEM(pospxl));
-				switch (method) 
-				{
-				case slope:
-					val = computeSlope(rheight, nheight, pos);
-					break;
-				case height:
-					val = computeHeightDifference(rheight, nheight);
-					break;
-				}
-				listVal[index] = val;
-				if (val > max)
-					max = val;
-				index++;
-			}
-		}
-	}
-	return max;
-}
-
-double FlowDirectionAlgorithm::maxAdj(Pixel pxl, PixelIterator gradient, double listVal[]) 
-{
-	int pos = 0;
-	int index = 0;
-	double val = 0, height, nheight;
-	height = *(gradient(pxl));
-	double max = -1;
-	Pixel pospxl;
-
-	for (int i = -1; i <= 1; ++i)
-	{
-		for (int j = -1; j <= 1; ++j)
-		{
-			pospxl.x = pxl.x + j;
-			pospxl.y = pxl.y + i;
-			pospxl.z = 0;
-			pos = pos + 1;
-			if (pos != 5)
-			{
-				if ( *(iterDEM(pospxl)) > *(iterDEM(pxl)) )
-					val = rUNDEF;
-				else 
-				{
-					nheight = *(gradient(pospxl));
-					val = computeHeightDifference(height, nheight);
-				}
-				listVal[index] = val;
-				if (val > max)
-					max = val;
-				index++;
-			}
-		}
-	}
-	
-	return max;
-}
-
-
-void FlowDirectionAlgorithm::calculate(QString methodInput) 
-{
-	QString sl = methodInput.toLower();
-	method = methodValueOf(sl);
-
-	FlowDirection fd;
-	double max;
-
-	iterFlow = PixelIterator(_flowdirRaster, BoundingBox(), PixelIterator::fXYZ);
-
-	iterDEM = PixelIterator(_inRaster, BoundingBox(), PixelIterator::fXYZ);
-	PixelIterator inEnd = iterDEM.end();
-
-	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-
-	while (iterPos != inEnd)
-	{
-		Pixel pxl = iterPos.position();
-		*(iterFlow(pxl)) = noflow;  // ini value
-		//Get maximum slope for the specified cell with it's eight neighboring cells
-		double listVal[8];
-		//vector<double> listVal;// = new vector<double>(8);
-		max = maxAdj(pxl, listVal);
-		if (max > 0)
-		{
-			//Finds thw elements with maximum value in the list
-			std::vector<FlowDirection> listPos;
-			findDirection(listVal, max, listPos);
-			fd = getFlowDirection(listPos);
-			*(iterFlow(pxl)) = Location[(byte)fd];
-		}
-		else if (max == rUNDEF)
-			*(iterFlow(pxl)) = noflow;
-		else
-			*(iterFlow(pxl)) = flatcell;
-		iterPos++;
-	}
-	//-------------------------------------------------------------------------
-	int copylist = itRASTERSIZE | itENVELOPE | itCOORDSYSTEM | itGEOREF;
-	IRasterCoverage gradient1Raster = OperationHelperRaster::initialize(_inRaster.as<IlwisObject>(), itRASTER, copylist);
-	if (!gradient1Raster.isValid())
-	{
-		ERROR1(ERR_NO_INITIALIZED_1, "gradient1");
-		return;
-	}
-
-	IRasterCoverage gradient2Raster = OperationHelperRaster::initialize(_inRaster.as<IlwisObject>(), itRASTER, copylist);
-	if (!gradient2Raster.isValid())
-	{
-		ERROR1(ERR_NO_INITIALIZED_1, "gradient2");
-		return;
-	}
-
-	PixelIterator gradient1 = PixelIterator(gradient1Raster, BoundingBox(), PixelIterator::fXYZ);
-	PixelIterator gradient2 = PixelIterator(gradient2Raster, BoundingBox(), PixelIterator::fXYZ);
-	PixelIterator grdEnd = gradient1.end();
-	//-----------------------------------------------------------------------------------------
-
-	//Flat surface treatment
-	std::fill(gradient1, gradient1.end(), 0);
-	std::fill(gradient2, gradient2.end(), 0);
-	
-	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-
-	while (iterPos != grdEnd)
-	{
-		Pixel pxl = iterPos.position();
-		if (*(iterFlow(pxl)) == flatcell)
-		{
-			std::vector<Cell> flatList;
-			std::vector<Cell> outletList;
-			locateOutlet(pxl, flatList, outletList);
-			if (outletList.size() > 0) 
-			{
-				imposeGradient2LowerElevation(outletList, flatList, gradient1);
-				imposeGradientFromElevation(flatList, gradient2);
-				combineGradient(gradient1, gradient2, flatList);
-				assignFlowInFlat(flatList, gradient2);
-				Cell cell;
-				for (std::vector<Cell>::iterator pos = outletList.begin();
-					pos < outletList.end(); ++pos)
-				{
-					cell = *pos;
-					*(iterFlow(cell.pxl)) = cell.val;
-				}
-
-				//Apply flow assignment procedure to those exceptional cells based on gradient1
-				assignFlowInFlat(flatList, gradient1);
-				iniGradient(gradient1, gradient2, flatList);
-			}
-		}
-		iterPos++;
-	}
-
-	iterPos = PixelIterator(_iterEmptyRaster, BoundingBox(), PixelIterator::fXYZ);
-	while (iterPos != grdEnd)
-	{
-		Pixel pxl = iterPos.position();
-		if (onEdge(pxl)  || *(iterFlow(pxl)) > 8)
-			*(iterFlow(pxl)) = 0;
-		iterPos++;
-	}
-}
-
-//The slope is calculated by subscribing the neighbor's elevation value from the center
-//distance 1.14 is concerned for diagonal cells
-//Parameters
-//h1 - the elevation of the center cell
-//h2 - the elevation of the neighboring cell
-//pos - the location number according to flow direction definition in ILWIS 	
-//Returns - slope value of the center cell	
-double FlowDirectionAlgorithm::computeSlope(double h1, double h2, int pos) 
-{
-	double val;
-	if (isEven(pos))
-		val = h1 - h2;
-	else
-		val = (h1 - h2) / 1.41;
-	return val;
-}
-
-
-double FlowDirectionAlgorithm::computeHeightDifference(double h1, double h2) 
-{
-	return h1 - h2;
-}
-
-
-//Finds the elements with the specified value in the given list
-//Parameters
-//	listA - the list filled with the slopes with the neighboring cells
-//	val - the specified value to be searched in the given list
-//  Returns - the list filled with the index of the specified element 	
-void FlowDirectionAlgorithm::findDirection(double listA[], double val,
-	std::vector<FlowDirectionAlgorithm::FlowDirection>& listPos) 
-{
-	for (int index = 0; index < 8; ++index) {
-		double value = listA[index];
-		if (value == val)
-			listPos.push_back(mapFlowLocation(index));
-	}
-}
-
-//	Map the flow location number with flow direction
-//	Parameters
-//		pos - the flow location number as defined in ILWIS
-//	Returns - flow direction 	
-FlowDirectionAlgorithm::FlowDirection FlowDirectionAlgorithm::mapFlowLocation(int pos) 
-{
-	FlowDirection result = FlowDirectionAlgorithm::E;
 	switch (pos) {
-	case 0: result = FlowDirectionAlgorithm::NW;
-		break;
-	case 1: result = FlowDirectionAlgorithm::N;
-		break;
-	case 2:	result = FlowDirectionAlgorithm::NE;
-		break;
-	case 3: result = FlowDirectionAlgorithm::W;
-		break;
-	case 4: result = FlowDirectionAlgorithm::E;
-		break;
-	case 5: result = FlowDirectionAlgorithm::SW;
-		break;
-	case 6: result = FlowDirectionAlgorithm::S;
-		break;
-	case 7: result = FlowDirectionAlgorithm::SE;
-		break;
+	case 0: return NW;
+	case 1: return N;
+	case 2: return NE;
+	case 3: return W;
+	case 4: return E;
+	case 5: return SW;
+	case 6: return S;
+	case 7: return SE;
 	}
-	return result;
+	return E;
 }
 
 
-//Examine the flow direction location to perform one of the following:
-//---1. if there are only two elements in the given list (maxium slop occurs in two neiboring cells):	
-//---2. if there are only two elements in the given list (maxium slop occurs in two neiboring cells):
-//make flow direction with S or W or E or N, if such a element exists in the given list
-//otherwise, make the flow direction with the first element in the list.
-//---3. if there are more than two cells with maximum slop, perform one of the following:
-//if three cells located in one edge, make the flow direction value with the middle cell of the edge, otherwise,
-//make flow direction with S or W or E or N, if such a element exists in the given list, otherwise
-//make the flow direction with the first element in the list 	
-//Parameters
-//	listPos - the list filled with flow directions
-//Returns - flow direction 	
-FlowDirectionAlgorithm::FlowDirection FlowDirectionAlgorithm::getFlowDirection(const std::vector<FlowDirection>& listPos) 
+void FlowDirectionAlgorithm::locateOutlet( int startX, int startY,std::vector<Cell>& flatList,std::vector<Cell>& outList)
 {
-	//vector<FlowDirection>::iterator pos = listPos.iterator();
-	if (listPos.size() == 1) {
-		return listPos[0];
-	}
-	else if (listPos.size() == 2) { //sets it flow witho the center element, if it exists
-		int index = 0;
-		while (index < 2) {
-			FlowDirection fd = listPos[index];
-			if ((fd == FlowDirectionAlgorithm::E) || (fd == FlowDirectionAlgorithm::S) ||
-				(fd == FlowDirectionAlgorithm::W) || (fd == FlowDirectionAlgorithm::N)) {
-				return fd;
-			}
-			index++;
-		}
-	}
-	else {
-		if (isInOneEdge(listPos, FlowDirectionAlgorithm::SW, FlowDirectionAlgorithm::S, FlowDirectionAlgorithm::SE))
-			return FlowDirectionAlgorithm::S;
-		else if (isInOneEdge(listPos, FlowDirectionAlgorithm::NW, FlowDirectionAlgorithm::W, FlowDirectionAlgorithm::SW))
-			return FlowDirectionAlgorithm::W;
-		else if (isInOneEdge(listPos, FlowDirectionAlgorithm::NW, FlowDirectionAlgorithm::N, FlowDirectionAlgorithm::NE))
-			return FlowDirectionAlgorithm::N;
-		else if (isInOneEdge(listPos, FlowDirectionAlgorithm::NE, FlowDirectionAlgorithm::E, FlowDirectionAlgorithm::SE))
-			return FlowDirectionAlgorithm::E;
-		else {
-			int index = 0;
-			while (index < listPos.size()) {
-				FlowDirection fd = listPos[index];
-				if (fd == FlowDirectionAlgorithm::E || fd == FlowDirectionAlgorithm::S ||
-					fd == FlowDirectionAlgorithm::W || fd == FlowDirectionAlgorithm::N) {
-					return fd;
-				}
-				index++;
-			}
-		}
-	}
-	return listPos[0];
-}
-
-//	Locates cells in the flat adjacent to a outlet and add this cell to a list
-//	Parameters
-//		row - row number of the given cell in a flat
-//		col - column number of the given cell in a flat
-//		flatList - the list filled with the cells over a flat
-//	Returns - a list filled with cells over the flat adjacent to an outlet cell 	
-void FlowDirectionAlgorithm::locateOutlet(Pixel pxl, std::vector<Cell>& flatList, std::vector<Cell>& outList) {
-	int nrow, ncol;
-	Cell cell(pxl);
 	std::vector<Cell> srcList;
 	std::vector<Cell> desList;
-	*(iterFlow(pxl)) = flag;
-	double flatCellElevation = *(iterDEM(pxl));
-	srcList.push_back(cell);
-	flatList.push_back(cell);
 
-	do {
-		desList.resize(0);
-		for (std::vector<Cell>::iterator pos = srcList.begin(); pos < srcList.end(); ++pos)
-		{
-			cell = *pos;
-			pxl.y = cell.pxl.y;
-			pxl.x = cell.pxl.x;
-			Pixel pospxl;
-			for (int i = -1; i <= 1; ++i) 
-			{
-				pospxl.y = pxl.y + i;
-				for (int j = -1; j <= 1; ++j)
-				{
-					pospxl.x = pxl.x + j;
-					pospxl.z = 0;
+	double flatElevation = m_inDem[idx(startX,startY)];
 
-					if (!onEdge(pospxl) && *(iterFlow(pospxl)) != flag )
+	m_flowDem[idx(startX, startY)] = flag;
+
+	srcList.push_back(Cell(startX, startY,10));
+	flatList.push_back(Cell(startX, startY,10));
+
+	while (!srcList.empty()) {
+
+		desList.clear();
+
+		for (auto& c : srcList) {
+
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dx = -1; dx <= 1; dx++) {
+
+					int nx = c.x + dx;
+					int ny = c.y + dy;
+
+					if (nx < 0 || ny < 0 || nx >= _xsize || ny >= _ysize)
+						continue;
+
+					int nidx = idx(nx,ny);
+
+					if (onEdge(nx, ny) || m_flowDem[nidx] == flag)
+						continue;
+
+					if (m_inDem[nidx] == flatElevation && hasFlow(m_flowDem[nidx])) {
+						outList.push_back(Cell(nx, ny, m_flowDem[nidx]));
+						desList.push_back(Cell(nx, ny,10));
+						m_flowDem[nidx] = flag;
+					}
+					else if (m_inDem[nidx] == flatElevation) {
+						m_flowDem[nidx] = flag;
+						flatList.push_back(Cell(nx, ny,10));
+						desList.push_back(Cell(nx, ny,10));
+					}
+				}
+			}
+		}
+		srcList.swap(desList);
+	}
+}
+
+
+void FlowDirectionAlgorithm::imposeGradient2LowerElevation( std::vector<Cell>& outletList,
+	std::vector<Cell>& flatList,
+	double* gradient)
+{
+	std::vector<Cell> srcList = outletList;
+	std::vector<Cell> desList;
+
+	while (!srcList.empty()) {
+
+		// mark processed outlets
+		for (auto& c : srcList) {
+			m_flowDem[idx(c.x,c.y)] = flatcell;
+		}
+
+		// increment gradient
+		for (auto& c : flatList) {
+			if (m_flowDem[idx(c.x, c.y)] == flag)
+				gradient[idx(c.x, c.y)] += increment;
+		}
+
+		// expand
+		desList.clear();
+
+		for (auto& c : srcList) {
+
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dx = -1; dx <= 1; dx++) {
+
+					int nx = c.x + dx;
+					int ny = c.y + dy;
+
+					if (nx < 0 || ny < 0 || nx >= _xsize || ny >= _ysize)
+						continue;
+
+					if (m_flowDem[idx(nx,ny)] == flag) 
 					{
-						if (*(iterDEM(pospxl)) == flatCellElevation && hasFlow( *(iterFlow(pospxl))) ) 
-						{
-							cell.setRC(pospxl);
-							cell.val = *(iterFlow(pospxl));
-							*(iterFlow(pospxl)) = flag;
-							outList.push_back(cell);
-							desList.push_back(cell);
-						}
-						else if (*(iterDEM(pospxl)) == flatCellElevation) 
-						{
-							cell.setRC(pospxl);
-							*(iterFlow(pospxl)) = flag;
-							desList.push_back(cell);
-							flatList.push_back(cell);
-						}
+						m_flowDem[idx(nx,ny)] = flatcell;
+						desList.emplace_back(nx, ny);
 					}
 				}
 			}
 		}
+
 		srcList.swap(desList);
-	} while (srcList.size() > 0);
-}
-
-//	Impose gradient in flat to lower elevation. This incrementation starts with adjacent cells to existing gradient,   
-//	by imposing a downslope gradient. The procedure then is re-applied to all the remainder cells.
-//	This is repeated untill all cells have a downstream gradient. 
-//	Parameters
-//		flow - an array with flow direction
-//		outletList - the list filled with the cells adjacent to the outlets
-//		flatList - the list filled with the cells in a flat surface	
-//	Returns - an array filled with gradient to lower elevation in a flat 	
-void FlowDirectionAlgorithm::imposeGradient2LowerElevation(std::vector<Cell>& outletList, std::vector<Cell>& flatList, PixelIterator gradient) 
-{
-	Pixel pxl;
-	pxl.x = 0;
-	pxl.y = 0;
-	pxl.z = 0;
-
-	Cell cell(pxl);
-
-	std::vector<Cell> srcList;
-	for (std::vector<Cell>::iterator pos = outletList.begin(); pos < outletList.end(); ++pos) 
-	{
-		srcList.push_back((*pos));
 	}
-	std::vector<Cell> desList;
-	do {
-		for (std::vector<Cell>::iterator pos = srcList.begin(); pos < srcList.end(); ++pos) 
-		{
-			cell = (*pos);
-			*(iterFlow(cell.pxl))= flatcell;
-		}
-
-		for (std::vector<Cell>::iterator pos = flatList.begin(); pos < flatList.end(); ++pos) 
-		{
-			//int index = li.nextIndex();
-			cell = (*pos);
-			if (*(iterFlow(cell.pxl)) == flag) 
-			{
-				*(gradient(cell.pxl)) += increment;
-			}
-		}
-		for (std::vector<Cell>::iterator pos = srcList.begin(); pos < srcList.end(); ++pos)
-		{
-			cell = (*pos);
-			pxl.y = cell.pxl.y;
-			pxl.x = cell.pxl.x;
-			Pixel pospxl;
-			pospxl.z = 0;
-			for (int i = -1; i <= 1; ++i) 
-			{
-				pospxl.y = pxl.y + i;
-				for (int j = -1; j <= 1; ++j) {
-					pospxl.x = pxl.x + j;
-					if (*(iterFlow(pospxl)) == flag) {
-						cell.setRC(pospxl);
-						desList.push_back(cell);
-						*(iterFlow(pospxl)) = flatcell;
-					}
-				}
-			}
-		}
-		srcList.swap(desList);
-		desList.resize(0);
-	} while (srcList.size() > 0);
-	srcList.resize(0);
 }
 
 
-//	Impose gradient away from higher elevation. 
-//	Parameters
-//		flow - an array with flow direction
-//		outletList - the list filled with the cells adjacent to the outlets
-//	Returns - an array filled with gradient to lower elevation in a flat 	
-void FlowDirectionAlgorithm::imposeGradientFromElevation(std::vector<Cell>& flatList, PixelIterator gradient)
+void FlowDirectionAlgorithm::imposeGradientFromElevation(
+	std::vector<Cell>& flatList,
+	double* gradient)
 {
-	Pixel pxl;
-	pxl.x = 0;
-	pxl.y = 0;
-	pxl.z = 0;
+	bool changed;
 
-	Cell cell(pxl);
-
-	bool condition1 = false, condition2 = false;
 	do {
-		condition2 = false;
+		changed = false;
 		std::vector<Cell> flagList;
-		for (std::vector<Cell>::iterator pos = flatList.begin(); pos < flatList.end(); ++pos)
-		{
-			cell = (*pos);
-			pxl.y = cell.pxl.y;
-			pxl.x = cell.pxl.x;
-			pxl.z = 0;
-			Pixel pospxl;
-			pospxl.z = 0;
 
-			if (*(iterFlow(pxl)) != flag) {
-				condition1 = true;
-				condition2 = true;
-				for (int i = -1; i <= 1; ++i) 
-				{
-					pospxl.y = pxl.y + i;
-					for (int j = -1; j <= 1; ++j)
+		for (auto& c : flatList) {
+
+			if (m_flowDem[idx(c.x,c.y)] == flag)
+				continue;
+
+			bool surrounded = true;
+
+			for (int dy = -1; dy <= 1 && surrounded; dy++) {
+				for (int dx = -1; dx <= 1; dx++) {
+
+					int nx = c.x + dx;
+					int ny = c.y + dy;
+
+					if (nx < 0 || ny < 0 || nx >= _xsize || ny >= _ysize)
+						continue;
+
+					if (m_flowDem[idx(nx,ny)] != flatcell || m_flowDem[idx(nx, ny)] == flag) 
 					{
-						pospxl.x = pxl.x + j;
-						if (*(iterFlow(pospxl)) != flatcell || *(iterFlow(pospxl)) == flag ) 
-						{
-							flagList.push_back(cell);
-							condition1 = false;
-							break;
-						}
-					}
-					if (condition1 == false)
+						flagList.push_back(c);
+						surrounded = false;
 						break;
+					}
 				}
+				if (!surrounded)
+					break;
 			}
 		}
 
-		for ( std::vector<Cell>::iterator pos = flagList.begin();
-			pos < flagList.end(); ++pos) 
-		{
-			cell = (*pos);
-			*(iterFlow(cell.pxl)) = flag;
-		}
+		if (!flagList.empty()) {
+			changed = true;
 
-		if (flagList.size() > 0) 
-		{
-			for (std::vector<Cell>::iterator pos = flatList.begin();
-				pos < flatList.end(); ++pos) 
-			{
-				cell = (*pos);
-				if (*(iterFlow(cell.pxl)) == flag)
-				{
-					*(gradient(cell.pxl)) += increment;
-				}
+			for (auto& c : flagList) {
+				m_flowDem[idx(c.x, c.y)] = flag;
+			}
+
+			for (auto& c : flatList) {
+				if (m_flowDem[idx(c.x, c.y)] == flag)
+					gradient[idx(c.x, c.y)] += increment;
 			}
 		}
-		condition2 = flagList.size() > 0;
-	} while (condition2);
-	//return gradient;
+
+	} while (changed);
 }
 
-//	Combine gradient in the previous two steps, 
-//	imposeGradient2LowerElevation and imposeGradientFromElevation
-//	Parameters
-//		grds - an array resulting from the previous step - imposeGradientFromElevation
-//		flatList - the list filled with the cells in a flat surface 
-void FlowDirectionAlgorithm::combineGradient( PixelIterator grd1, PixelIterator grd2, std::vector<Cell>& flatList) 
+
+void FlowDirectionAlgorithm::combineGradient(
+	double* grd1,
+	double* grd2,
+	std::vector<Cell>& flatList)
 {
-	Cell cell;
-	for (std::vector<Cell>::iterator pos = flatList.begin();pos < flatList.end(); ++pos) 
+	for (auto& c : flatList) 
 	{
-		cell = (*pos);
-		*(grd2(cell.pxl)) += *(grd1(cell.pxl));
+		grd2[idx(c.x,c.y)] += grd1[idx(c.x, c.y)];
 	}
 }
 
-void assignFlowInFlat(std::vector<Cell>& flatList, PixelIterator gradient);
-/*Assign flow direction based on D-8 approach using the result from the previous step combineGradient
-* @param flatList - the list filled with the cells in a flat surface
-*/
-void FlowDirectionAlgorithm::assignFlowInFlat(std::vector<Cell>& flatList, PixelIterator gradient) 
+
+void FlowDirectionAlgorithm::assignFlowInFlat(
+	std::vector<Cell>& flatList,
+	double* gradient)
 {
-	Cell cell;
-	for (std::vector<Cell>::iterator pos = flatList.begin();pos < flatList.end(); ++pos) 
-	{
-		cell = (*pos);
-		
-		if (hasFlow(*(iterFlow(cell.pxl))) != true) {
+	for (auto& c : flatList) {
+
+		if (!hasFlow(m_flowDem[idx(c.x,c.y)])) 
+		{
+
 			double listVal[8];
-			double max = maxAdj(cell.pxl, gradient, listVal);
+			double max = maxAdj(c.x, c.y, gradient, listVal);
+
 			if (max > 0) {
 				std::vector<FlowDirection> listPos;
 				findDirection(listVal, max, listPos);
 				FlowDirection fd = getFlowDirection(listPos);
-				*(iterFlow(cell.pxl)) = Location[(byte)fd];
+				m_flowDem[idx(c.x, c.y)] = Location[(byte)fd];
 			}
 		}
 	}
 }
 
 
-void FlowDirectionAlgorithm::iniGradient(PixelIterator grd1, PixelIterator grd2, std::vector<Cell>& flatList) 
+void FlowDirectionAlgorithm::iniGradient(
+	double* grd1,
+	double* grd2,
+	std::vector<Cell>& flatList)
 {
-	Cell cell;
-	for (std::vector<Cell>::iterator pos = flatList.begin();pos < flatList.end(); ++pos) 
-	{
-		cell = (*pos);
-		*(grd2(cell.pxl)) = 0;
-		*(grd1(cell.pxl)) = 0;		
+	for (auto& c : flatList) {
+		grd1[idx(c.x, c.y)] = 0;
+		grd2[idx(c.x, c.y)] = 0;
 	}
 }
+
+

@@ -45,60 +45,60 @@ namespace Ilwis {
 		private:
 			IRasterCoverage _inRaster;
 			IRasterCoverage _outRaster;
-			IRasterCoverage _flagRaster;
-
-			PixelIterator iterDEM;
-			PixelIterator iterFlow;
-			PixelIterator iterFlowFlag;
-
-			IRasterCoverage _iterEmptyRaster;
-			PixelIterator iterPos;
-
 
 			long _xsize, _ysize;
-			std::vector<Pixel> m_vFlat;	//store a continuous flat area  	
+			std::vector<int> m_vFlatIndices;	//store a continuous flat area  	
 			std::vector<byte> m_vDirection;
 			std::vector<byte> m_vFlowSelf;
 
+			double* m_inDem;
+			double* m_flowDem;
+			int* m_flag;
 
 		private:
-			void executeFlowDirection();
-			bool isInOneEdge(int iPos1, int iPos2, int iPos3, std::vector<int>& vPos);
-			double rFindMaxLocation(std::vector<double>&, std::vector<int>&, int& iCout);
-			long iLookUp(double rMax, int iCout, std::vector<int>&);
 
-			void FillArray(Pixel pxl, std::vector<double>&);
+			inline int idx(int x, int y) const
+			{
+				return y * _xsize + x;
+			}
+	
+			void InitPars();
+			long m_ContFlat;
+			long iLookUp(double rMax, int iCout, std::vector<int>&);
+			bool isInOneEdge(int iPos1, int iPos2, int iPos3, std::vector<int>& vPos);
+			void executeFlowDirection();
+			bool onEdge(int x, int y);
+			void FillArray(int x, int y, std::vector<double>& vValue);
+			void TreatFlatAreas();
+			void LocateOutlets(int sx, int sy, std::vector<int>& outlets);
+			void SetFlowsInFlatArea(std::vector<int>& vOutlets);
+			bool isEven(int elem);
 			double rComputeSlope(double rCurH, double rNbH, int iPos);
 			double rComputeHeightDifference(double rCurH, double rNbH);
-			bool isEven(int elem);
-			long m_ContFlat;
-			void TreatFlatAreas();
-			void LocateOutlets(Pixel rcInitFlat, std::vector<Pixel>&);
-			void SetFlowsInFlatArea(std::vector<Pixel>& vOutlets);
-			void InitPars();
-			bool onEdge(Pixel pix);
+			double rFindMaxLocation(std::vector<double>& vValue, std::vector<int>& vPos, int& iCout);
+
 
             NEW_OPERATION(MapFlowDirection);
         };
 
-	class Cell {
-	public:
-		Pixel pxl;
-		byte val;
-		int grd;
-		Cell() {}
-		Cell(Pixel pxl1) {
-			pxl.x = pxl1.x;
-			pxl.y = pxl1.y;
-			pxl.z = pxl1.z;
-		}
-		void setRC(Pixel pxl1) {
-			pxl.x = pxl1.x;
-			pxl.y = pxl1.y;
-			pxl.z = pxl1.z;
-		}
+	
 	};
 
+	struct Cell
+	{
+		int x;
+		int y;
+		int val;
+
+		Cell(int _x = 0, int _y = 0, int _val = 0)
+			: x(_x), y(_y), val(_val) {
+		}
+
+		void set(int _x, int _y) {
+			x = _x;
+			y = _y;
+		}
+	};
 
 	class FlowDirectionAlgorithm 
 	{
@@ -107,15 +107,9 @@ namespace Ilwis {
 		enum FlowDirection { NW, N, NE, W, E, SW, S, SE };
 
 	private:
-		IRasterCoverage _inRaster;
-		IRasterCoverage _flowdirRaster;
-		IRasterCoverage _gradientRaster;
-
-		PixelIterator iterDEM;
-		PixelIterator iterFlow;
-
-		IRasterCoverage _iterEmptyRaster;
-		PixelIterator iterPos;
+		double* m_inDem;
+		double* m_flowDem;
+		int* m_flag;
 
 	private:
 		FlowDirectionAlgorithm::Method method;
@@ -126,37 +120,38 @@ namespace Ilwis {
 		byte flag;
 		long _xsize, _ysize;
 
+		inline int idx(int x, int y) const
+		{
+			return y * _xsize + x;
+		}
 
 		Method methodValueOf(QString val);
-		bool onEdge(Pixel pix);
+		bool onEdge(int x, int y);
 		bool isEven(int elem);
-		bool isInOneEdge(const std::vector<FlowDirection>& listPos, FlowDirection fd1, FlowDirection fd2, FlowDirection fd3);
-		bool hasFlow(byte flowdirection);
+		bool isInOneEdge(const std::vector<FlowDirection>& listPos,FlowDirection fd1, FlowDirection fd2, FlowDirection fd3);
+		bool hasFlow(unsigned char flowdirection);
 
-		double maxAdj(Pixel pxl, double listVal[]);
-		double maxAdj(Pixel pxl, PixelIterator gradient, double listVal[]);
-
-		//
-		void findDirection(double listA[], double val, std::vector<FlowDirection>& listPos);
+		double maxAdj(int x, int y, double listVal[]);
+		double maxAdj(int x, int y, double* gradient, double listVal[]);
+		void findDirection(double listA[], double val,std::vector<FlowDirection>& listPos);
 		FlowDirection getFlowDirection(const std::vector<FlowDirection>& listPos);
-		void locateOutlet(Pixel pxl, std::vector<Cell>& flatList, std::vector<Cell>& outList);
-		void imposeGradient2LowerElevation( std::vector<Cell>& outletList, std::vector<Cell>& flatList, PixelIterator gradient);
-		void imposeGradientFromElevation(std::vector<Cell>& flatList, PixelIterator gradient);
-		void combineGradient( PixelIterator grd1, PixelIterator grd2, std::vector<Cell>& flatList);
-		void assignFlowInFlat(std::vector<Cell>& flatList, PixelIterator gradient);
-		void iniGradient(PixelIterator grd1, PixelIterator grd2, std::vector<Cell>& flatList);
-		//
-		double computeSlope(double h1,double h2,int pos);
-		double computeHeightDifference(double h1,double h2);
+		void locateOutlet(int x, int y,std::vector<Cell>& flatList,std::vector<Cell>& outList);
+		void imposeGradient2LowerElevation(std::vector<Cell>& outletList,std::vector<Cell>& flatList,double* gradient);
+		void imposeGradientFromElevation(std::vector<Cell>& flatList,double* gradient);
+		void combineGradient(double* grd1, double* grd2,std::vector<Cell>& flatList);
+		void assignFlowInFlat(std::vector<Cell>& flatList,double* gradient);
+		void iniGradient(double* grd1, double* grd2,std::vector<Cell>& flatList);
+		double computeSlope(double h1, double h2, int pos);
+		double computeHeightDifference(double h1, double h2);
 		FlowDirection mapFlowLocation(int pos);
-		//
+
 	public:
 		static int noflow;
-			FlowDirectionAlgorithm(IRasterCoverage inRaster, IRasterCoverage flowdirRaster, IRasterCoverage emptyRaster);
+			FlowDirectionAlgorithm(double* dem,double* flow, long xsz,long ysz);
+
 			void calculate(QString method);
 	};
 
-    }
 }
 
 #endif // MAPFLOWDIRECTION_H
