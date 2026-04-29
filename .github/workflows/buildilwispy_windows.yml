@@ -36,7 +36,7 @@ jobs:
            choco install -y python310
            choco install -y python311
            # choco install -y python312
-    - name: install python 3.12 and 3.13 by downloading a zipfile
+    - name: install python 3.12, 3.13 and 3.14 by downloading a zipfile
       run: |
            C:
            cd C:/
@@ -46,6 +46,9 @@ jobs:
            wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/Python313.zip
            unzip Python313.zip
            del Python313.zip
+           wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/Python314.zip
+           unzip Python314.zip
+           del Python314.zip
     - name: install python packages
       run: |
            c:/python36/python.exe -m pip install --upgrade pip
@@ -64,6 +67,8 @@ jobs:
            c:/python312/python.exe -m pip install wheel setuptools twine
            c:/python313/python.exe -m pip install --upgrade pip
            c:/python313/python.exe -m pip install wheel setuptools twine
+           c:/python314/python.exe -m pip install --upgrade pip
+           c:/python314/python.exe -m pip install wheel setuptools twine
     - name: install Qt
       run: |
            wget https://filetransfer.itc.nl/pub/52n/ilwis_py/build/msvc2017_64.zip
@@ -116,4 +121,5 @@ jobs:
            move python_whl311/*.whl .
            move python_whl312/*.whl .
            move python_whl313/*.whl .
+           move python_whl314/*.whl .
            c:/python310/python.exe -m twine upload *.whl --verbose
