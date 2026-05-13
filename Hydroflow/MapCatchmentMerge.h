@@ -15,8 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 
-#ifndef MAPCATCHMENTEXTRACTION_H
-#define MAPCATCHMENTEXTRACTION_H
+#ifndef MAPCATCHMENTMERGE_H
+#define MAPCATCHMENTMERGE_H
 
 namespace geos {
 	namespace geom {
@@ -110,10 +110,10 @@ namespace Ilwis {
 			Coordinate StoreSegment(IFeatureCoverage smpFrom, long id, long val);
 			Coordinate StoreSegment(IFeatureCoverage smpFrom, geos::geom::CoordinateSequence* crdbuf, long id, long val);
 
-			void StoreSourceSegment(long val);
+			//void StoreSourceSegment(long val);
 			void StoreSourceSegment(geos::geom::CoordinateSequence* crdbuf, long val);
 
-			Coordinate SplitSegment(IFeatureCoverage smpFrom, long iRaw, double disval, long id, Pixel rc);
+			//Coordinate SplitSegment(IFeatureCoverage smpFrom, long iRaw, double disval, long id, Pixel rc);
 			Coordinate SplitSegment(IFeatureCoverage smpFrom, geos::geom::CoordinateSequence* crdbuf, long iRaw, double disval, long id, Pixel rc);
 
 			void CreateTableLongestFlowPath(std::vector<AttLongestPath> vAtt);
@@ -223,4 +223,4 @@ namespace Ilwis {
 	}
 }
 
-#endif // ILWMapCatchmentMerge_H
+#endif //  MAPCATCHMENTMERGE_H

@@ -111,8 +111,7 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 	bool resource = executeCatchmentMerging();
 	if (resource && ctx != 0)
 	{
-		//CreatePolygonTableElements();
-		/////////////////////////////////////////////
+
 		if (_outMergeRaster.isValid())
 		{
 			_outMergeRaster->setAttributes(_outputTable);
@@ -137,7 +136,6 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 					for (int rec = 0; rec < count; ++rec)
 					{
 						const SPFeatureI& feature = _outputPolygonMap->feature(rec);
-						quint64 id = feature->featureid();
 						geos::geom::Geometry* polygon = dynamic_cast<geos::geom::Geometry*>(feature->geometry().get());
 						if (polygon)
 						{
@@ -156,20 +154,11 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 							_outputTable->setCell("CatchmentArea", rec, area);
 							_outputTable->setCell("TotalUpstreamArea", rec, area);
 
-						/*	double rarea = area;
-							std::vector<long> vLinks;
-							vLinks.clear();
-							if (colUpstreamLinkCatchment.size()>0)
-								SplitString(colUpstreamLinkCatchment[rec].toString(), QString(","),vLinks);
-							if ((vLinks.size() == 1) && (vLinks[0] == 0))
-								_outputTable->setCell("TotalUpstreamArea", rec, area);*/
-
 						}
 
 					}
 			}
 		}
-		//////////////////////////////////////////////////////////////////
 
 		if (_outMergeRaster.isValid()) {
 			_outMergeRaster->setAttributes(_outputTable);
@@ -182,17 +171,46 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 
 		if ( _longestPathFeature.isValid())
 		{
-			_longestPathFeature->setAttributes(_outputPathTable);
+			long tsz = _longestPathFeature->featureCount();
+			NamedIdentifierRange* _segrange = new NamedIdentifierRange();
+			for (int i = 0; i < tsz; i++)
+			{
+				QString id = QString::number(i + 1);
+				*_segrange << id;
+			}
+
+			INamedIdDomain segDomain;
+			segDomain.prepare();
+			segDomain->range(_segrange);
+
+			Table* tbl = static_cast<Table*>(_outputPathTable->clone());
+			tbl->addColumn(COVERAGEKEYCOLUMN, segDomain);
+			_longestPathFeature->setAttributes(tbl);
+
 			QVariant value;
 			value.setValue<IFeatureCoverage>(_longestPathFeature);
 			logOperation(_longestPathFeature, _expression, { _inDrngOrderRaster });
 			ctx->addOutput(symTable, value, "extractedlongpath", itFEATURE, _longestPathFeature->resource());
 		}
-
-
+	
 		if (_outputExtraxtedSegmentMap.isValid())
 		{
-			_outputExtraxtedSegmentMap->setAttributes(_outputExtractSegTable);
+			long tsz = _outputExtraxtedSegmentMap->featureCount();
+			NamedIdentifierRange* _segrange = new NamedIdentifierRange();
+			for (int i = 0; i < tsz; i++)
+			{
+				QString id = QString::number(i + 1);
+				*_segrange << id;
+			}
+
+			INamedIdDomain segDomain;
+			segDomain.prepare();
+			segDomain->range(_segrange);
+
+			Table* tbl = static_cast<Table*>(_outputExtractSegTable->clone());
+			tbl->addColumn(COVERAGEKEYCOLUMN, segDomain);
+			_outputExtraxtedSegmentMap->setAttributes(tbl);
+
 			QVariant value;
 			value.setValue<IFeatureCoverage>(_outputExtraxtedSegmentMap);
 			logOperation(_outputExtraxtedSegmentMap, _expression, { _inDrngOrderRaster });
@@ -202,7 +220,9 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 
 		if (_outputPolygonMap.isValid())
 		{
-			_outputPolygonMap->setAttributes(_outputTable);
+			Table* tbl = static_cast<Table*>(_outputTable->clone());
+			tbl->addColumn(COVERAGEKEYCOLUMN, _outDomain);
+			_outputPolygonMap->setAttributes(tbl);
 			QVariant value;
 			value.setValue<IFeatureCoverage>(_outputPolygonMap);
 			logOperation(_outputPolygonMap, _expression, { _inDrngOrderRaster });
@@ -240,6 +260,7 @@ Ilwis::OperationImplementation::State MapCatchmentMerge::prepare(ExecutionContex
 		return sPREPAREFAILED;
 	}
 
+	_internelDranageSegmentMap.set(_internelDranageSegmentMap->clone());
 	QString outputName = _expression.parm(0, false).value();
 
 	if (!_inDrngOrderRaster.prepare(drnstreamStr, itRASTER)) {
@@ -261,6 +282,9 @@ Ilwis::OperationImplementation::State MapCatchmentMerge::prepare(ExecutionContex
 		ERROR2(ERR_COULD_NOT_LOAD_2, demrasterStr, "");
 		return sPREPAREFAILED;
 	}
+
+	_inAccRaster.set(_inAccRaster->clone());
+	_inDemRaster.set(_inDemRaster->clone());
 
 	// Check if we are dealing with FlowDirection.dom; if yes, then recalc raw vals of flow direction map. We also allow Value maps with values 0 til 8 (0 = flat / undef, 1 til 8 are the directions).
 	IDomain itemdom = _inFldRaster->datadefRef().domain();
@@ -334,6 +358,8 @@ Ilwis::OperationImplementation::State MapCatchmentMerge::prepare(ExecutionContex
 	_longestPathFeature.prepare(QString(INTERNAL_CATALOG + "/%1").arg(outputName));
 	_longestPathFeature->coordinateSystem(_inDrngOrderRaster->georeference()->coordinateSystem());
 	_longestPathFeature->envelope(_inDrngOrderRaster->georeference()->envelope());
+
+	_longestPathFeature.set(_longestPathFeature->clone());
 
 	/////////////////////////////////////////////////////////////////
 	if (_outMergeRaster.isValid())
@@ -608,6 +634,7 @@ void MapCatchmentMerge::CreateTableSegmentsExtracted()
 		{
             long segid = m_extractedsegids[i][j]-1;
 			iRecs++;
+//			_outputExtractSegTable->setCell(COVERAGEKEYCOLUMN, iRecs, QVariant(iRecs));
             _outputExtractSegTable->setCell("Catchment", iRecs, QVariant(i + 1));
 			_outputExtractSegTable->setCell("UpstreamLinkID", iRecs, QVariant(cUpstreamLinkSrc[segid].toString()));
 
@@ -745,19 +772,22 @@ void MapCatchmentMerge::CleanSegment(IFeatureCoverage smpTo, IFeatureCoverage sm
 	long iSize = drgIDs.size();
 
 	m_extractedsegids.resize(iSize);
+
+	ITable tbl = smpFrom->attributeTable();
+	std::vector<QVariant> domainids;
+	domainids = tbl->column(COVERAGEKEYCOLUMN);
+
 	for (int i = 0; i < iSize; i++)
 	{
 		std::vector<long> vSegIDs = GetSegmentIDsExtracted(i);
 		std::map<long, long> mapSrcDstIDs;
-		////////////////////
+
+		long ids = 0;
 		for (auto feature : smpFrom)
 		{
+			quint64 ftid = domainids[ids].toInt() + 1;
 			const geos::geom::LineString* ls_geom =
 				dynamic_cast<const geos::geom::LineString*>(feature->geometry().get());
-
-			Record rec = feature->record();
-			QVariant val = rec.cell(rec.columnCount() - 1);
-			int ftid = val.toInt() + 1;
 
 			bool IsExists = find(vSegIDs.begin(), vSegIDs.end(), ftid) != vSegIDs.end();
 
@@ -815,6 +845,7 @@ void MapCatchmentMerge::CleanSegment(IFeatureCoverage smpTo, IFeatureCoverage sm
 					m_extractedsegids[i].push_back(iSegVal);
 				}
 			}
+			ids++;
 		}
 
 
@@ -1190,6 +1221,7 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 			}
 
 			Pixel minpospxl = _inDrngOrderRaster->georeference()->coord2Pixel(mindiscrd);
+			minpospxl.z = 0;
 			double minposht = *iterDem(minpospxl);
 
 			if (minposht <= otletht)
@@ -1239,10 +1271,13 @@ void MapCatchmentMerge::CreateTableLongestFlowPath(std::vector<AttLongestPath> v
 		//i++;
 		AttLongestPath atts = (*pos);
 		QVariant ucrd;
+		atts.UpstreamCoord.z = 0;
 		ucrd.setValue(atts.UpstreamCoord);
 		QVariant dcrd;
+		atts.DownstreamCoord.z = 0;
 		dcrd.setValue(atts.DownstreamCoord);
 
+//		_outputPathTable->setCell(COVERAGEKEYCOLUMN, i, QVariant(i));
 		_outputPathTable->setCell("UpstreamCoord", i, ucrd);
 		_outputPathTable->setCell("DownstreamCoord", i, dcrd);
 		_outputPathTable->setCell("Length", i, QVariant(atts.rLength));
@@ -1255,7 +1290,6 @@ void MapCatchmentMerge::CreateTableLongestFlowPath(std::vector<AttLongestPath> v
 		i++;
 	}
 
-	_longestPathFeature->setAttributes(_outputPathTable);
 }
 
 
@@ -1267,155 +1301,23 @@ double MapCatchmentMerge::rComputeSinuosity(double rLength, double rStraightLeng
 		return 0;
 }
 
-Coordinate MapCatchmentMerge::SplitSegment(IFeatureCoverage smpFrom, long iRaw, double disval, long id, Pixel rc)
-{
-	Coordinate cd;
-
-	std::vector< const geos::geom::Geometry*> geomarr;
-
-	for (auto feature : smpFrom)
-	{
-		const geos::geom::LineString* ls_geom =
-			dynamic_cast<const geos::geom::LineString*>(feature->geometry().get());
-
-		Record rec = feature->record();
-		QVariant val = rec.cell(rec.columnCount() - 1);
-		int ftid = val.toInt();
-
-		if (ls_geom && !ls_geom->isEmpty() && ftid == iRaw)
-		{
-			geos::geom::CoordinateSequence* crdbufFrom = ls_geom->getCoordinates();
-			geos::geom::CoordinateSequence* crdbufnew = crdbufFrom->clone();
-
-
-			int iFlow = 1;
-			bool fCalculate = true;
-			long iCount = 0;
-			while ((iFlow != 0) && fCalculate)
-			{
-				fCalculate = IsEdgeCell(rc) != true;
-
-				iFlow = GetDownStreamCell(rc);
-				if (*m_iterOut[rc] == id && fCalculate && iFlow != 0)   //valid flow
-					iCount++;
-				else
-					fCalculate = false;
-			}
-
-			geos::geom::Geometry* geometry = _longestPathFeature->geomfactory()->createLineString(crdbufnew);
-			//lines.push_back(geometry);
-
-
-			if (geometry->isValid())
-			{
-				geometry->setSRID(id);
-				SPFeatureI ft = _longestPathFeature->newFeature(geometry);
-				rec.cell(rec.columnCount() - 1) = (int)id;
-				ft->record(rec);
-			}
-			cd = crdbufFrom->getAt(iCount - 1);
-			//delete crdbufFrom;
-		}
-
-	}
-
-	return cd;
-}
-
-
-void MapCatchmentMerge::StoreSourceSegment(long val)
-{
-	if (m_vStream.size() == 0)
-		return;
-
-	geos::geom::CoordinateSequence* crdbuf = _longestPathFeature->geomfactory()->getCoordinateSequenceFactory()->create();
-
-	for (unsigned long index = 0; index < m_vStream.size(); ++index)
-	{
-		crdbuf->add(m_vStream[index]);
-	}
-
-	geos::geom::Geometry* geometry = _longestPathFeature->geomfactory()->createLineString(crdbuf);
-
-	//lines.push_back(geometry);
-
-	if (geometry->isValid())
-	{
-		//geometry->setSRID(val);
-		SPFeatureI ft = _longestPathFeature->newFeature(geometry);
-		Record rec = ft->record();
-		rec.cell(rec.columnCount() - 1) = (int)val;
-	}
-
-}
-
-
-Coordinate MapCatchmentMerge::StoreSegment(IFeatureCoverage smpFrom, long id, long val)
-{
-	Coordinate cd;
-
-	std::vector< const geos::geom::Geometry*> geomarr;
-
-	for (auto feature : smpFrom)
-	{
-		const geos::geom::LineString* ls_geom =
-			dynamic_cast<const geos::geom::LineString*>(feature->geometry().get());
-
-		Record rec = feature->record();
-		QVariant idval = rec.cell(rec.columnCount() - 1);
-
-		int ftid = idval.toInt();
-
-		if (ls_geom && !ls_geom->isEmpty())
-		{
-			if (ftid == id)
-			{
-				geos::geom::CoordinateSequence* crdbufFrom = ls_geom->getCoordinates();
-				geos::geom::CoordinateSequence* crdbufnew = crdbufFrom->clone();
-
-				geos::geom::Geometry* geometry = _longestPathFeature->geomfactory()->createLineString(crdbufnew);
-
-				if (geometry->isValid())
-				{
-					geometry->setSRID(val);
-
-					SPFeatureI ft = _longestPathFeature->newFeature(geometry);
-					Record rec = ft->record();
-					rec.cell(rec.columnCount() - 1) = (int)val;
-					Record rec1 = ft->record();
-
-					QVariant idval1 = rec.cell(rec.columnCount() - 1);
-
-				}
-				cd = crdbufFrom->getAt(crdbufFrom->size() - 1);
-			}
-			//delete crdbufFrom;
-		}
-
-	}
-
-	return cd;
-
-}
-
-
-
-//************************************************************************
 
 Coordinate MapCatchmentMerge::SplitSegment(IFeatureCoverage smpFrom, geos::geom::CoordinateSequence* crdbuf, long iRaw, double disval, long id, Pixel rc)
 {
-	Coordinate cd;
+	ITable tbl = smpFrom->attributeTable();
+	std::vector<QVariant> domainids;
+	domainids = tbl->column(COVERAGEKEYCOLUMN);
 
+	Coordinate cd;
 	std::vector< const geos::geom::Geometry*> geomarr;
 
+	long ids = 0;
 	for (auto feature : smpFrom)
 	{
 		const geos::geom::LineString* ls_geom =
 			dynamic_cast<const geos::geom::LineString*>(feature->geometry().get());
 
-		Record rec = feature->record();
-		QVariant val = rec.cell(rec.columnCount() - 1);
-		int ftid = val.toInt();
+		quint64 ftid = domainids[ids].toInt();
 
 		if (ls_geom && !ls_geom->isEmpty() && ftid == iRaw)
 		{
@@ -1436,13 +1338,13 @@ Coordinate MapCatchmentMerge::SplitSegment(IFeatureCoverage smpFrom, geos::geom:
 			}
 
 
-			for (long k = 0; k < crdbufFrom->size() - 1; k++)
+			//for (long k = 0; k < crdbufFrom->size(); k++)
+			for (long k = 0; k < iCount; k++)
 				crdbuf->add(crdbufFrom->getAt(k));
-
 			cd = crdbufFrom->getAt(iCount - 1);
-			//delete crdbufFrom;
-		}
 
+		}
+		ids++;
 	}
 
 	return cd;
@@ -1455,6 +1357,7 @@ void MapCatchmentMerge::StoreSourceSegment(geos::geom::CoordinateSequence* crdbu
 
 	for (unsigned long index = 0; index < m_vStream.size(); ++index)
 	{
+		m_vStream[index].z = .0;
 		crdbuf->add(m_vStream[index]);
 	}
 
@@ -1463,34 +1366,36 @@ void MapCatchmentMerge::StoreSourceSegment(geos::geom::CoordinateSequence* crdbu
 
 Coordinate MapCatchmentMerge::StoreSegment(IFeatureCoverage smpFrom, geos::geom::CoordinateSequence* crdbuf, long id, long val)
 {
-	Coordinate cd;
+	ITable tbl = smpFrom->attributeTable();
+	std::vector<QVariant> domainids;
+	domainids = tbl->column(COVERAGEKEYCOLUMN);
 
+	Coordinate cd;
 	std::vector< const geos::geom::Geometry*> geomarr;
 
+	long ids = 0;
 	for (auto feature : smpFrom)
 	{
+		//int fid = feature->featureid();
+
 		const geos::geom::LineString* ls_geom =
 			dynamic_cast<const geos::geom::LineString*>(feature->geometry().get());
 
-		Record rec = feature->record();
-		QVariant idval = rec.cell(rec.columnCount() - 1);
-
-		int ftid = idval.toInt();
+		quint64 ftid = domainids[ids].toInt();
 
 		if (ls_geom && !ls_geom->isEmpty())
 		{
 			if (ftid == id)
 			{
 				geos::geom::CoordinateSequence* crdbufFrom = ls_geom->getCoordinates();
-				geos::geom::CoordinateSequence* crdbufnew = crdbufFrom->clone();
 
-				for (long k = 0; k < crdbufFrom->size() - 1; k++)
+				for (long k = 0; k < crdbufFrom->size()-1; k++)
 					crdbuf->add(crdbufFrom->getAt(k));
 
-				cd = crdbufFrom->getAt(crdbufFrom->size() - 1);
+				cd = crdbufFrom->getAt(crdbufFrom->size()-1);
 			}
 		}
-
+		ids++;
 	}
 
 	return cd;
@@ -1536,16 +1441,17 @@ Coordinate MapCatchmentMerge::ComputeCenterDrainage(long iDrainageID, double rLe
 			iDrainageID = colDownstreamLinkID[iRaw].toInt();
 	}
 
-	std::vector< const geos::geom::Geometry*> geomarr;
+	ITable tbl = sm->attributeTable();
+	std::vector<QVariant> domainids;
+	domainids = tbl->column(COVERAGEKEYCOLUMN);
 
+	long ids = 0;
 	for (auto feature : sm)
 	{
 		const geos::geom::LineString* ls_geom =
 			dynamic_cast<const geos::geom::LineString*>(feature->geometry().get());
 
-		Record rec = feature->record();
-		QVariant val = rec.cell(rec.columnCount() - 1);
-		int ftid = val.toInt();
+		quint64 ftid = domainids[ids].toInt();
 
 		if (ls_geom && !ls_geom->isEmpty() && ftid == iDrainageID)
 		{
@@ -1562,8 +1468,8 @@ Coordinate MapCatchmentMerge::ComputeCenterDrainage(long iDrainageID, double rLe
 				else
 					c1 = c2;
 			}
-			//delete crdbufnew;
 		}
+		ids++;
 	}
 
 	return c1;
@@ -2508,6 +2414,7 @@ Ilwis::OperationImplementation::State MapCatchmentMergeWithOutlet::prepare(Execu
 	_outputExtraxtedSegmentMap.prepare(QString(INTERNAL_CATALOG + "/%1").arg(outputName));
 	_outputExtraxtedSegmentMap->coordinateSystem(_inDrngOrderRaster->georeference()->coordinateSystem());
 	_outputExtraxtedSegmentMap->envelope(_inDrngOrderRaster->georeference()->envelope());
+	_outputExtraxtedSegmentMap.set(_outputExtraxtedSegmentMap->clone());
 
 	return sPREPARED;
 }
@@ -2572,6 +2479,7 @@ Ilwis::OperationImplementation::State MapCatchmentMergeWithStreamOrder::prepare(
 	_outputExtraxtedSegmentMap.prepare(QString(INTERNAL_CATALOG + "/%1").arg(outputName));
 	_outputExtraxtedSegmentMap->coordinateSystem(_inDrngOrderRaster->georeference()->coordinateSystem());
 	_outputExtraxtedSegmentMap->envelope(_inDrngOrderRaster->georeference()->envelope());
+	_outputExtraxtedSegmentMap.set(_outputExtraxtedSegmentMap->clone());
 
 	m_UseOutlets = false;
 
