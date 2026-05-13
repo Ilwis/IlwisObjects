@@ -119,6 +119,8 @@ Ilwis::OperationImplementation::State VariableThresholdComputationBase::prepare(
         return sPREPAREFAILED;
     }
 
+    _inRaster.set(_inRaster->clone());
+
     int copylist = itRASTERSIZE | itENVELOPE | itCOORDSYSTEM | itGEOREF;
     _outRaster = OperationHelperRaster::initialize(_inRaster.as<IlwisObject>(), itRASTER, copylist);
     if (!_outRaster.isValid()) {
