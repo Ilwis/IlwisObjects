@@ -107,7 +107,23 @@ bool DrainageNetworkOrdering::execute(ExecutionContext* ctx, SymbolTable& symTab
 
 		if (_outputfeatures.isValid())
 		{
-			_outputfeatures->setAttributes(_outputTable);
+			//_outputfeatures->setAttributes(_outputTable);
+			long sz = _outputfeatures->featureCount();
+			NamedIdentifierRange* _segrange = new NamedIdentifierRange();
+			for ( int i=0; i<sz;i++)
+			{
+				QString id = QString::number(i+1);
+				*_segrange << id;
+			}
+
+			INamedIdDomain segDomain;
+			segDomain.prepare();
+			segDomain->range(_segrange);
+
+			Table* tbl = static_cast<Table*>(_outputTable->clone());
+			tbl->addColumn(COVERAGEKEYCOLUMN, segDomain);
+			_outputfeatures->setAttributes(tbl);
+
 			QVariant value;
 			value.setValue<IFeatureCoverage>(_outputfeatures);
 			logOperation(_outputfeatures, _expression, { _inRaster });
@@ -1046,6 +1062,7 @@ void DrainageNetworkOrdering::CreateTable(long maxStrahler)
 	IFlatTable newTable;
 	newTable.prepare();
 
+//	newTable->addColumn(_outDrainageRaster->primaryKey(), _orderDomain);
 	//newTable->addColumn("StreamID", _orderDomain);
 	newTable->addColumn("UpstreamLinkID", IlwisObject::create<IDomain>("text"),true);
 
@@ -1157,7 +1174,7 @@ void DrainageNetworkOrdering::FillTableRecords()
 
 			record = record - 1;
 
-			//_outputTable->setCell("StreamID", record, QVariant(record));
+//			_outputTable->setCell(_outDrainageRaster->primaryKey(), record, QVariant(record));
 
 			_outputTable->setCell("UpstreamLinkID", record, QVariant(rec.UpstreamLink));
 
