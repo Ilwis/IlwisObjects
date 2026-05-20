@@ -958,7 +958,7 @@ bool DrainageNetworkOrdering::IsAllUpstreamIdentified(Pixel node, std::vector<lo
 					long index = FindDrainageIndex(iVal);
 					m_rTotalUpstreamLength = m_rTotalUpstreamLength + m_vRecords[index].Length;
 					QString sUpstreamLink = m_sUpstreamLink.length() != 0 ? 
-						QString(",%1").arg(iVal,0,10) : QString("%1").arg(iVal,0,10);
+						QString(",%1").arg(iVal,0,10) : QString("%1").arg(iVal, 0, 10);
 					m_sUpstreamLink = m_sUpstreamLink + sUpstreamLink;
 					vUpstreamPos.push_back(index);
 				}

@@ -159,9 +159,10 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 				_outputfeatures = Ilwis::IFeatureCoverage(result._var.value<Ilwis::IFeatureCoverage>());
 				quint32 count = _outputfeatures->featureCount();
 				quint32 recordcount = _outputTable->recordCount();
+			
 				for (int rec = 0; rec < count; ++rec) {
 					const SPFeatureI& feature = _outputfeatures->feature(rec);
-					quint64 id = feature->featureid();
+					//quint64 id = feature->featureid();
 					geos::geom::Geometry* polygon = dynamic_cast<geos::geom::Geometry*>(feature->geometry().get());
 					if (polygon) {
 						double area = polygon->getArea();
@@ -177,22 +178,34 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 						_outputTable->setCell("Perimeter", rec, length);
 						_outputTable->setCell("CatchmentArea", rec, area);
 
+						m_vvCatchmentArea.push_back(AttCatchmentArea(long(rec),area));
+
 						AttUpstreamLink vULs(m_vvUpstreamLinks[rec]);
 
 						if (vULs.UpstreamLink.size() == 1 && vULs.UpstreamLink[0] == 0)
 						{
 							_outputTable->setCell("TotalUpstreamArea", rec, area);
-							_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, area);
+							//_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, area);
 						}
 						else
 						{
-							_outputTable->setCell("TotalUpstreamArea", rec, rUNDEF);
-							_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, rUNDEF);
+							double totalUpstreamArea = calTotalArea(vULs, m_vvCatchmentArea);
+							totalUpstreamArea += area; // add the catchment area itself to the total upstream area
+							if (totalUpstreamArea != rUNDEF)
+							{
+								_outputTable->setCell("TotalUpstreamArea", rec, totalUpstreamArea);
+								//_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, totalUpstreamArea);
+							}
+							else
+							{
+								_outputTable->setCell("TotalUpstreamArea", rec, rUNDEF);
+								//_outputfeatures->attributeTable()->setCell("TotalUpstreamArea", rec, rUNDEF);
+							}
 						}
 
-						_outputfeatures->attributeTable()->setCell("CenterCatchment", rec, c);
+						/*_outputfeatures->attributeTable()->setCell("CenterCatchment", rec, c);
 						_outputfeatures->attributeTable()->setCell("Perimeter", rec, length);
-						_outputfeatures->attributeTable()->setCell("CatchmentArea", rec, area);
+						_outputfeatures->attributeTable()->setCell("CatchmentArea", rec, area);*/
 
 					}
 
@@ -209,17 +222,52 @@ bool MapCatchmentExtraction::execute(ExecutionContext* ctx, SymbolTable& symTabl
 
 			if (_outputfeatures.isValid())
 			{
-				_outputfeatures->setAttributes(_outputTable);
+				long tsz = _outputfeatures->featureCount();
+				NamedIdentifierRange* _segrange = new NamedIdentifierRange();
+				for (int i = 0; i < tsz; i++)
+				{
+					QString id = QString::number(i + 1);
+					*_segrange << id;
+				}
+
+				INamedIdDomain segDomain;
+				segDomain.prepare();
+				segDomain->range(_segrange);
+				
+				Table* tbl = static_cast<Table*>(_outCatchmentRaster->attributeTable()->clone());
+				tbl->addColumn(COVERAGEKEYCOLUMN, segDomain);
+				_outputfeatures->setAttributes(tbl);
+
 				QVariant value;
 				value.setValue<IFeatureCoverage>(_outputfeatures);
 				logOperation(_outputfeatures, _expression, { _inDrngOrderRaster });
-				ctx->addOutput(symTable, value, _outputfeatures->name(), itFEATURE, _outputfeatures->resource());
+				ctx->addOutput(symTable, value, "extractedlongpath", itFEATURE, _outputfeatures->resource());
 			}
 		}
 		m_vvUpstreamLinks.resize(0);
 	}
 
 	return resource;
+}
+
+
+double MapCatchmentExtraction::calTotalArea(AttUpstreamLink lk, std::vector<AttCatchmentArea> attarea)
+{
+
+	double totalArea = 0;
+	for (unsigned long i = 0; i < lk.UpstreamLink.size(); ++i)
+	{
+		long id = lk.UpstreamLink[i] -1;
+		for (unsigned long j = 0; j < attarea.size(); ++j)
+		{
+			if (attarea[j].DrainageID == id)
+			{
+				totalArea += attarea[j].CatchmentArea;
+				break;
+			}
+		}
+	}
+	return totalArea;
 }
 
 bool MapCatchmentExtraction::executeCatchmentExtraction()

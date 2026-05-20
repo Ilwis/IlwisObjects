@@ -47,6 +47,17 @@ namespace Ilwis {
 			std::vector<long> UpstreamLink;
 		};
 
+		struct AttCatchmentArea
+		{
+			AttCatchmentArea(long id,double area) 
+			{
+				DrainageID = id;
+				CatchmentArea = area;
+			}
+			long         DrainageID;
+			double       CatchmentArea;
+		};
+
 		class MapCatchmentExtraction : public OperationImplementation
 		{
 		public:
@@ -76,6 +87,7 @@ namespace Ilwis {
 			double rDistance(Coordinate cd1, Coordinate cd2);
 			bool fEllipsoidalCoords();
 			void SetAttributeTable();
+			double calTotalArea(AttUpstreamLink lk, std::vector<AttCatchmentArea> attarea);
 
 			void SplitString(QString s,QString mid,std::vector<long>& results);
 
@@ -100,6 +112,7 @@ namespace Ilwis {
 			std::vector<long> m_vDrnIDs;
 
 			std::vector<AttUpstreamLink> m_vvUpstreamLinks;
+			std::vector<AttCatchmentArea> m_vvCatchmentArea;
 
 		private:
 			struct PrevLinePoint {
