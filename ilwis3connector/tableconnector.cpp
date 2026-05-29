@@ -325,8 +325,9 @@ bool TableConnector::storeMetaData(IlwisObject *obj, const IOOptions &options)
         domname = "none.dom";
     else {
         // in case of attribute table, the table domain is already set, so we do not need the COVERAGEKEYCOLUMN as column
-        if (!options.contains("asattrib"))   // only set by raster with attributetable
+        if (/*(!options.contains("asattrib")) && */ (_attributeDomain != "") && (tbl->columnIndex(COVERAGEKEYCOLUMN) != iUNDEF)) {  // options.asattrib only set by raster with attributetable
             reduceColumns++;
+        }
     }
 
     _odf->setKeyValue("Ilwis", "Type", "Table");
@@ -355,6 +356,10 @@ bool TableConnector::storeColumns(const Table *tbl, const IOOptions &options) {
     for(int i=0; i < tbl->columnCount(); ++i) {
         ColumnDefinition def = tbl->columndefinition(i);
         IDomain dmColumn = def.datadef().domain<>();
+        QString colpostfix = def.name();
+        // in case of attribute table, the table domain is already set, so we do not need the COVERAGEKEYCOLUMN as column
+        if ((_attributeDomain != "") && (colpostfix == COVERAGEKEYCOLUMN))
+            continue;
         QString domName;
         if (dmColumn->ilwisType() & itCOORDDOMAIN) {
             const ICoordinateSystem csy = dmColumn.as<CoordinateDomain>()->coordinateSystem();
@@ -405,10 +410,6 @@ bool TableConnector::storeColumns(const Table *tbl, const IOOptions &options) {
                 }
             }
         }
-        QString colpostfix = def.name();
-        // in case of attribute table, the table domain is already set, so we do not need the COVERAGEKEYCOLUMN as column
-        if ((_attributeDomain != "") && (colpostfix == COVERAGEKEYCOLUMN))
-            continue;
 
         if ( colpostfix.indexOf(QRegExp("[.]")) != -1)
             colpostfix = "'" + colpostfix + "'";
