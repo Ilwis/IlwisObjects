@@ -109,7 +109,7 @@ bool CrossRastersBase::crossWithRaster(const  BoundingBox& box){
         double v2 = *iterIn2;
 
         checkUndef(v1,v2);
-        bool ignore = (_undefhandling == uhIgnoreUndef ) && (v1 == rUNDEF || v1 == rUNDEF);
+        bool ignore = (_undefhandling == uhIgnoreUndef ) && (v1 == rUNDEF || v2 == rUNDEF);
 
         if (!ignore) {
             quint64 combo = v1 + v2 * SHIFTER;
@@ -139,7 +139,7 @@ bool CrossRastersBase::crossWithRaster(const  BoundingBox& box){
     _crossDomain->range(idrange);
     long iChangName = 0;
     for(quint64 orderedCombo : inCreationOrder) {
-        auto element = combos[orderedCombo];
+        auto& element = combos[orderedCombo];
         quint32 v2 = orderedCombo / SHIFTER;
         quint32 v1 = orderedCombo  - v2 * SHIFTER;
 
@@ -150,12 +150,10 @@ bool CrossRastersBase::crossWithRaster(const  BoundingBox& box){
                 id = QString("%1 #%2").arg(id).arg(iChangName);
             }
             *idrange << id;
-            _outputTable->setCell(0,record,QVariant(record));
-            _outputTable->setCell(1,record,QVariant(v1));
-            _outputTable->setCell(2,record,QVariant(v2));
-            _outputTable->setCell(3,record,QVariant(element._count))          ;
-            _outputTable->setCell(4,record,QVariant(element._count * pixarea)) ;
-            _outputTable->setCell(5,record,QVariant(record)); // coverage key
+            _outputTable->setCell(0,record,QVariant(v1));
+            _outputTable->setCell(1,record,QVariant(v2));
+            _outputTable->setCell(2,record,QVariant(element._count))          ;
+            _outputTable->setCell(3,record,QVariant(element._count * pixarea)) ;
             ++record;
         }
         updateTranquilizer(count++,10);
@@ -223,7 +221,7 @@ bool CrossRastersBase::crossNoRaster( const BoundingBox& box){
     trq()->prepare(_metadata->name(),TR("Updating table"), combos.size());
     _crossDomain->range(idrange);
     long iChangName = 0;
-    for(auto element : combos) {
+    for (auto& element : combos) {
         ComboValues combo = element.first;
         double v2 = combo._v2;
         double v1 = combo._v1;
@@ -234,12 +232,10 @@ bool CrossRastersBase::crossNoRaster( const BoundingBox& box){
                 id = QString("%1 #%2").arg(id).arg(iChangName);
             }
             *idrange << id;
-            _outputTable->setCell(0,record,QVariant(record));
-            _outputTable->setCell(1,record,QVariant(v1));
-            _outputTable->setCell(2,record,QVariant(v2));
-            _outputTable->setCell(3,record,QVariant(element.second));
-            double totalArea = element.second * pixarea;
-            _outputTable->setCell(4,record,QVariant(totalArea))  ;
+            _outputTable->setCell(0,record,QVariant(v1));
+            _outputTable->setCell(1,record,QVariant(v2));
+            _outputTable->setCell(2,record,QVariant(element.second));
+            _outputTable->setCell(3,record,QVariant(element.second * pixarea))  ;
             ++record;
         }
         updateTranquilizer(count++,10);
@@ -313,7 +309,7 @@ Ilwis::OperationImplementation::State CrossRastersBase::prepare(ExecutionContext
     QString crossName = QString("%1_%2").arg(_inputRaster1->name(), _inputRaster2->name());
     crossName.replace(".","_");
     _crossDomain.prepare();
-    _crossDomain->name(crossName);
+    //_crossDomain->name(crossName);
     _crossDomain->range(new NamedIdentifierRange());
 
 
@@ -327,7 +323,6 @@ Ilwis::OperationImplementation::State CrossRastersBase::prepare(ExecutionContext
         _undefhandling = uhIgnoreUndef;
 
 
-    newTable->addColumn("cross_combinations", _crossDomain);
     newTable->addColumn("first_raster", _inputRaster1->datadef().domain<>());
     newTable->addColumn("second_raster", _inputRaster2->datadef().domain<>());
     newTable->addColumn("pixel_count", IlwisObject::create<IDomain>("count"));
@@ -402,7 +397,6 @@ Ilwis::OperationImplementation::State CrossRastersWithRasterOutput::prepare(Exec
         for ( int band = 0; band < _outputRaster->size().zsize(); ++band){
             _outputRaster->datadefRef(band) = def;
         }
-        _outputTable->addColumn(_outputRaster->primaryKey(), _crossDomain);
         _outputRaster->setAttributes(_outputTable);
         return sPREPARED;
     }
