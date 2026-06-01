@@ -43,7 +43,18 @@ jobs:
       run: |
            . /github/home/.bashrc
            conda activate custompython
-           python3 -m pip install --upgrade pip
+           PY="${{ matrix.python-version }}"
+           if [[ "$PY" == "3.6" ]]; then
+               python3 -m pip install --upgrade "pip<24"
+           elif [[ "$PY" == "3.7" ]]; then
+               python3 -m pip install --upgrade "pip<24"
+           elif [[ "$PY" == "3.8" ]]; then
+               python3 -m pip install --upgrade "pip<24"
+           elif [[ "$PY" == "3.9" ]]; then
+               python3 -m pip install --upgrade "pip<24"
+           else
+               python3 -m pip install --upgrade pip
+           fi
            python3 -m pip install wheel setuptools twine
     - name: patch
       run: |
