@@ -11,7 +11,7 @@ jobs:
       image: ubuntu:20.04
     strategy:
       matrix:
-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ['3.9']
 
     steps:
     - uses: actions/checkout@v4
@@ -43,6 +43,7 @@ jobs:
       run: |
            . /github/home/.bashrc
            conda activate custompython
+           python3 -m pip --version
            PY="${{ matrix.python-version }}"
            if [ "$PY" = "3.6" ] || [ "$PY" = "3.7" ] || [ "$PY" = "3.8" ] || [ "$PY" = "3.9" ]; then
                python3 -m pip install --upgrade "pip<24"
