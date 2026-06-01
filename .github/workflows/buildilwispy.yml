@@ -11,7 +11,7 @@ jobs:
       image: ubuntu:20.04
     strategy:
       matrix:
-        python-version: ['3.9']
+        python-version: ['3.6', '3.7', '3.8', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
     - uses: actions/checkout@v4
@@ -23,7 +23,12 @@ jobs:
            sh ./Miniconda3-latest-Linux-x86_64.sh -b
            /github/home/miniconda3/bin/conda init
            . /github/home/.bashrc
-           conda create -y --name custompython python=${{ matrix.python-version }} "pip<24"
+           PY="${{ matrix.python-version }}"
+           if [ "$PY" = "3.6" ] || [ "$PY" = "3.7" ] || [ "$PY" = "3.8" ] || [ "$PY" = "3.9" ]; then
+               conda create -y --name custompython python=${{ matrix.python-version }} "pip<24"
+           else
+               conda create -y --name custompython python=${{ matrix.python-version }} pip
+           fi
            conda activate custompython
     - name: install dependencies
       run: |
@@ -45,7 +50,7 @@ jobs:
            conda activate custompython
            PY="${{ matrix.python-version }}"
            if [ "$PY" = "3.6" ] || [ "$PY" = "3.7" ] || [ "$PY" = "3.8" ] || [ "$PY" = "3.9" ]; then
-               python3 -m pip install --force-reinstall "pip<24"
+               python3 -m pip install --upgrade "pip<24"
            else
                python3 -m pip install --upgrade pip
            fi
