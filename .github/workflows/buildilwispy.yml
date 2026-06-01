@@ -23,7 +23,7 @@ jobs:
            sh ./Miniconda3-latest-Linux-x86_64.sh -b
            /github/home/miniconda3/bin/conda init
            . /github/home/.bashrc
-           conda create -y --name custompython python=${{ matrix.python-version }} pip<24
+           conda create -y --name custompython python=${{ matrix.python-version }} "pip<24"
            conda activate custompython
     - name: install dependencies
       run: |
