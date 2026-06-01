@@ -44,13 +44,7 @@ jobs:
            . /github/home/.bashrc
            conda activate custompython
            PY="${{ matrix.python-version }}"
-           if [[ "$PY" == "3.6" ]]; then
-               python3 -m pip install --upgrade "pip<24"
-           elif [[ "$PY" == "3.7" ]]; then
-               python3 -m pip install --upgrade "pip<24"
-           elif [[ "$PY" == "3.8" ]]; then
-               python3 -m pip install --upgrade "pip<24"
-           elif [[ "$PY" == "3.9" ]]; then
+           if [ "$PY" = "3.6" ] || [ "$PY" = "3.7" ] || [ "$PY" = "3.8" ] || [ "$PY" = "3.9" ]; then
                python3 -m pip install --upgrade "pip<24"
            else
                python3 -m pip install --upgrade pip
