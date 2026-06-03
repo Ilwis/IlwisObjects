@@ -23,7 +23,12 @@ jobs:
            sh ./Miniconda3-latest-Linux-x86_64.sh -b
            /github/home/miniconda3/bin/conda init
            . /github/home/.bashrc
-           conda create -y --name custompython python=${{ matrix.python-version }}
+           PY="${{ matrix.python-version }}"
+           if [ "$PY" = "3.6" ] || [ "$PY" = "3.7" ] || [ "$PY" = "3.8" ] || [ "$PY" = "3.9" ]; then
+               conda create -y --name custompython python=${{ matrix.python-version }} "pip<24"
+           else
+               conda create -y --name custompython python=${{ matrix.python-version }} pip
+           fi
            conda activate custompython
     - name: install dependencies
       run: |
@@ -44,13 +49,7 @@ jobs:
            . /github/home/.bashrc
            conda activate custompython
            PY="${{ matrix.python-version }}"
-           if [[ "$PY" == "3.6" ]]; then
-               python3 -m pip install --upgrade "pip<24"
-           elif [[ "$PY" == "3.7" ]]; then
-               python3 -m pip install --upgrade "pip<24"
-           elif [[ "$PY" == "3.8" ]]; then
-               python3 -m pip install --upgrade "pip<24"
-           elif [[ "$PY" == "3.9" ]]; then
+           if [ "$PY" = "3.6" ] || [ "$PY" = "3.7" ] || [ "$PY" = "3.8" ] || [ "$PY" = "3.9" ]; then
                python3 -m pip install --upgrade "pip<24"
            else
                python3 -m pip install --upgrade pip
