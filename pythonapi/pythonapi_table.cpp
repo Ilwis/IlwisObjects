@@ -196,14 +196,14 @@ namespace pythonapi {
             if ( pybuf.buf == NULL){
                 throw InvalidObject("the container is not a buffer object");
             }
-            int len = pybuf.len;
+            quint64 nItems = pybuf.len / pybuf.itemsize;
             int colIndex = this->ptr()->as<Ilwis::Table>()->columnIndex(QString::fromStdString(name));
             if ( colIndex == iUNDEF){
                 throw InvalidObject("The column is uknonwn.");
             }
             IlwisTypes valueType = IlwisObject::determineBufferFormat(pybuf);
 
-            for(int i=0; i < len; ++i){
+            for(int i=0; i < nItems; ++i){
                 if ( hasType(valueType, itNUMBER)){
                     double v;
                     if ( valueType == itDOUBLE)
