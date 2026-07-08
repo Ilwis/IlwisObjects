@@ -48,6 +48,18 @@
     <ClCompile Include="Hydroflow\MapFlowLengthToOutlet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Hydroflow\MapDEMOptimization.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Hydroflow\TblFlowPathLongitudinalProfile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Hydroflow\TblHortonPlots.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Hydroflow\REALMAT.CPP">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="Hydroflow\hydroflow_module.h">
@@ -92,6 +104,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Hydroflow\MapFlowLengthToOutlet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hydroflow\MapDEMOptimization.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hydroflow\TblFlowPathLongitudinalProfile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hydroflow\TblHortonPlots.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hydroflow\Realmat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Hydroflow\Basemat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
