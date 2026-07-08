@@ -129,9 +129,11 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 				//_outputPolygonMap->setAttributes(_outputTable);
 
 				quint32 count = _outputPolygonMap->featureCount();
-				quint32 recordcount = _outputTable->recordCount();
+				/*quint32 recordcount = _outputTable->recordCount();
 				std::vector<QVariant> colUpstreamLinkCatchment = _outputTable->column("UpStreamLinkCatchment");
-				std::vector<QVariant> colTotalUpstreamArea = _outputTable->column("TotalUpstreamArea");
+				std::vector<QVariant> colTotalUpstreamArea = _outputTable->column("TotalUpstreamArea");*/
+
+				std::vector<QVariant> totDrgLens = _outputTable->column("TotalDrainageLength");;
 
 					for (int rec = 0; rec < count; ++rec)
 					{
@@ -154,11 +156,20 @@ bool MapCatchmentMerge::execute(ExecutionContext* ctx, SymbolTable& symTable)
 							_outputTable->setCell("CatchmentArea", rec, area);
 							_outputTable->setCell("TotalUpstreamArea", rec, area);
 
+							double rDensity = (totDrgLens[rec].toDouble()/area) * 1000000;
+							_outputTable->setCell("DrainageDensity", rec, rDensity);
 						}
 
 					}
 			}
 		}
+
+		//_outputTable->setCell("TotalDrainageLength", rec, QVariant(rTotlaDrainageLen));
+		/////  wait for polygon function
+		////double rDensity = (rTotlaDrainageLen / colCatchArea[iRaw].toDouble()) * 1000000;
+		//double rDensity(.0);
+		//_outputTable->setCell("DrainageDensity", rec, QVariant(rDensity));
+
 
 		if (_outMergeRaster.isValid()) {
 			_outMergeRaster->setAttributes(_outputTable);
@@ -1124,7 +1135,7 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 
 		_outputTable->setCell("LongestFlowPathLength", rec, QVariant(rLongestFlowPathLength));
 
-		Pixel vstream = _inDrngOrderRaster->georeference()->coord2Pixel(m_vStream[m_vStream.size() - 1]);
+		Pixel vstream = _inDrngOrderRaster->georeference()->coord2Pixel(m_vStream[0]);
 		vstream.z = 0;
 
 		Coordinate crdLFP = _inDrngOrderRaster->georeference()->pixel2Coord(vstream);
@@ -1151,8 +1162,8 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 		_outputTable->setCell("OutletElevation", rec, QVariant(rHeight));
 
 		// generate longest path
-		FlowPathAtt.UpstreamCoord = m_vStream[m_vStream.size() - 1];
-		FlowPathAtt.DownstreamCoord = m_vStream[0];
+		FlowPathAtt.UpstreamCoord = m_vStream[0];
+		FlowPathAtt.DownstreamCoord = m_vStream[m_vStream.size() - 1];
 
 		if (m_vOutlet[i - 1].fExtractOverlandFlowPath)
 			StoreSourceSegment(longestcrdbuf, i);
@@ -1169,7 +1180,7 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 				{
 					/*sLbl = String("%li", iDownFlowID);
 					iRaw = pdsrtDrainage->iOrd(sLbl);*/
-					iRaw = pdsrt[iDownFlowID - 1];
+					iRaw = pdsrt[iDownFlowID-1];
 					iIndex = (long)(posID - vDrainageIDs.begin());
 					if ((m_UseOutlets == true) && (vLenPerDrainage[iIndex] > 0.0))
 					{
@@ -1177,6 +1188,8 @@ void MapCatchmentMerge::ComputeOtherAttributes()
 						Coordinate crdup = colUpCoords[iRaw].value<Coordinate>();
 						crdup.z = 0;
 						Pixel rcUpstream = _inDrngOrderRaster->georeference()->coord2Pixel(crdup);
+						rcUpstream.x--;
+						rcUpstream.y--;
 						FlowPathAtt.DownstreamCoord = SplitSegment(_internelDranageSegmentMap, longestcrdbuf, iRaw, rLongestFlowPathLength, i, rcUpstream);
 					}
 					else
@@ -1325,7 +1338,7 @@ Coordinate MapCatchmentMerge::SplitSegment(IFeatureCoverage smpFrom, geos::geom:
 
 			int iFlow = 1;
 			bool fCalculate = true;
-			long iCount = 0;
+			long iCount = 1;
 			while ((iFlow != 0) && fCalculate)
 			{
 				fCalculate = IsEdgeCell(rc) != true;
@@ -1341,7 +1354,7 @@ Coordinate MapCatchmentMerge::SplitSegment(IFeatureCoverage smpFrom, geos::geom:
 			//for (long k = 0; k < crdbufFrom->size(); k++)
 			for (long k = 0; k < iCount; k++)
 				crdbuf->add(crdbufFrom->getAt(k));
-			cd = crdbufFrom->getAt(iCount - 1);
+			cd = crdbufFrom->getAt(iCount-1);
 
 		}
 		ids++;
@@ -1451,7 +1464,7 @@ Coordinate MapCatchmentMerge::ComputeCenterDrainage(long iDrainageID, double rLe
 		const geos::geom::LineString* ls_geom =
 			dynamic_cast<const geos::geom::LineString*>(feature->geometry().get());
 
-		quint64 ftid = domainids[ids].toInt();
+		quint64 ftid = domainids[ids].toInt() +1;
 
 		if (ls_geom && !ls_geom->isEmpty() && ftid == iDrainageID)
 		{
@@ -1522,19 +1535,12 @@ void MapCatchmentMerge::ExtractUpstreamFlowPath(Pixel rc, long id)
 
 	if ((rcUpstream.isValid()) && (*m_iterOut(rcUpstream) == id))
 	{
-		
-		long iDrainageID = *iterDrainage(rcUpstream);
-		std::vector<long>::iterator posID = find(vDrainageIDs.begin(), vDrainageIDs.end(), iDrainageID);
-		bool IsExist = (posID != vDrainageIDs.end());
-		if (IsExist)
-		{
 			Coordinate c1 = _inDrngOrderRaster->georeference()->pixel2Coord(rc);
 			Coordinate c2 = _inDrngOrderRaster->georeference()->pixel2Coord(rcUpstream);
 			m_rSourceWaterFlowPathLen += rDistance(c1, c2);
 			m_vStream.push_back(c2);
 			lastrc = rcUpstream;
 			ExtractUpstreamFlowPath(rcUpstream, id);
-		}
 	}
 
 }
