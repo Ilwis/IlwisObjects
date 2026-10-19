@@ -17,7 +17,7 @@ CONFIG   -= app_bundle
 TEMPLATE = app
 
 
-SOURCES += commandlineclient/main.cpp
+SOURCES += cl3/main.cpp
 
 INEXEPATH=$$LIBPATH/$$TARGET
 OUTEXEPATH=$$OUTPUTPATH/
