@@ -1,3 +1,6 @@
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include "../../core/kernel.h"
 #include "../../core/ilwiscontext.h"
 #include "../../core/catalog/catalog.h"
@@ -28,6 +31,12 @@
 #include "../../core/ilwisobjects/coverage/featurecoverage.h"
 #include "../../core/ilwisobjects/coverage/feature.h"
 #include "../../core/kernel.h"
+#include "workflownode.h"
+#include "conditionNode.h"
+#include "operationExpression.h"
+#include "workflownode.h"
+#include "operationnode.h"
+#include "workflow.h"
 
 #include "pythonapi_object.h"
 #include "pythonapi_engine.h"
@@ -40,6 +49,8 @@
 #include "pythonapi_booleanobject.h"
 
 using namespace pythonapi;
+
+std::map<quint64, Ilwis::IWorkflow> Engine::_workflows;
 
 Engine::Engine(){
 }
@@ -320,33 +331,181 @@ std::string Engine::getLocation(){
     return location.toString().toStdString();
 }
 
-PyObject* Engine::operations(){
+PyObject* Engine::operations(const std::string& mode){
     QString filter = QString("(type=%1 or type=%2)").arg(itSINGLEOPERATION).arg(itWORKFLOW);
     std::vector<Ilwis::Resource> ops = Ilwis::mastercatalog()->select(filter);
     PyObject* list = newPyTuple(ops.size());
     int i = 0;
     for(auto it = ops.begin(); it != ops.end(); it++){
-        if (!setTupleItem(list, i++, PyUnicodeFromString(it->name().toStdString().data()))){
-            throw Ilwis::ErrorObject(QString("internal conversion error while trying to add '%1' to list of attributes").arg( it->name()));
+        if ( mode == ""){
+            if (!setTupleItem(list, i++, PyUnicodeFromString(it->name().toStdString().data()))){
+                throw Ilwis::ErrorObject(QString("internal conversion error while trying to add '%1' to list of attributes").arg( it->name()));
+            }
+        }else if ( mode == "unique"){
+            QString nameidtup = it->name() + "|" + QString::number(it->id());
+            if (!setTupleItem(list, i++, PyUnicodeFromString(nameidtup.toStdString().data()))){
+                throw Ilwis::ErrorObject(QString("internal conversion error while trying to add '%1' to list of attributes").arg( it->name()));
+            }
         }
     }
     return list;
 }
 
+void pythonapi::Engine::addParameter(QString &parms, int currIndex, std::map<QString, QString>& parm, bool input)
+{
+    parms += "\"parameter_" + QString((input ? "i" : "o")) + "_"+ QString::number(currIndex) + "\" : {";
+    for(auto it = parm.begin() ; it != parm.end(); ++it){
+        QString value = it->first != "type" ? it->second : Ilwis::TypeHelper::type2names(it->second.toLongLong());
+        parms += "\"" + it->first + "\":\"" + value + "\",";
+    }
+    parms += QString("\"index\":") + "\"" + QString::number(currIndex) + "\",";
+    parms += QString("\"input\":") + (input ? "\"yes\"" : "\"no\"");
+    parm.clear();
+
+    parms += "},";
+}
+std::map<QString, QStringList> extractFixedValues(const QString& input) {
+    std::map<QString, QStringList> results;
+
+    // 1. Identify the boundaries of the parameters
+    int firstParen = input.indexOf('(');
+    int lastParen = input.lastIndexOf(')');
+
+    if (firstParen == -1 || lastParen == -1 || lastParen <= firstParen) {
+        return results;
+    }
+
+    // Extract everything between the parentheses
+    QString content = input.mid(firstParen + 1, lastParen - firstParen - 1);
+    if (content.isEmpty()) return results;
+
+    // 2. Split into individual definitions (e.g., "name=a|b")
+    QStringList paramDefs = content.split(',', QString::SkipEmptyParts);
+
+    for (const QString& def : paramDefs) {
+        QString trimmedDef = def.trimmed();
+
+        if (trimmedDef.contains('=')) {
+            // 3. Handle key-value pairs: name=val1|val2
+            QStringList parts = trimmedDef.split('=');
+            QString key = parts.value(0).trimmed();
+            QStringList values;
+
+            if (parts.size() > 1) {
+                values = parts.at(1).split('|', QString::SkipEmptyParts);
+                // Clean up whitespace for each allowed value
+                for(QString& val : values) val = val.trimmed();
+            }
+            results[key] = values;
+        } else {
+            // 4. Handle standalone parameter names
+            results[trimmedDef] = QStringList();
+        }
+    }
+
+    return results;
+}
+
 std::string Engine::operationMetaData(const std::string &name, const std::string &element){
     QString filter = QString("(type=%1 or type=%2)").arg(itSINGLEOPERATION).arg(itWORKFLOW);
     std::vector<Ilwis::Resource> ops = Ilwis::mastercatalog()->select(filter);
-    QString ret;
+    bool isid;
+    QString::fromStdString(name).toDouble(&isid);
+    bool all = name == "*";
+    int count = 0;
+    QString ret = all ? "[" : "";
     for(auto it = ops.begin();it != ops.end(); it++){
-        if (QString::fromStdString(name).compare(it->name(),Qt::CaseInsensitive) == 0){
+        if (isid || all){
+            if (!all){
+                if (it->id() != QString::fromStdString(name).toULongLong())
+                    continue;
+            }
+            if ( count > 0) ret += ",";
+            if ( it->name() == "atan"){
+                qDebug() << "stop";
+            }
+            ret += "{" ;
+            ret += "\"id\" : \""+ QString::number(it->id()) + "\",";
+            ret += "\"name\": \""+ it->name() + "\",";
+            ret += "\"description\": \""+ it->description() + "\",";
+            ret += "\"url\" :\""+ it->url().toString() + "\",";
+            ret += "\"rawurl\": \""+ it->url(true).toString() + "\",";
+            ret += "\"container\" : \""+ it->container().toString() + "\",";
+            ret += "\"rawcontainer\":\""+ it->container(true).toString() + "\",";
+            ret += "\"size\" :\"" + QString::number(it->size()) + "\",";
+            ret += "\"dimensions\": \"" + it->dimensions() + "\",";
+            ret += "\"type\": \"" + Ilwis::TypeHelper::type2name( it->ilwisType()) + "\",";
+
+            QString parms = "\"parameters\" : ";
+            std::map<int, std::map<QString, QString>> iparms;
+            auto props = it->properties();
+            auto keys = props.keys();
+            std::sort(keys.begin(), keys.end(), [](const auto& a, const auto& b) {
+                    return a < b;
+                });
+
+            QJsonObject root;
+            std::map<QString, QStringList> fixeds = extractFixedValues(props["syntax"].toString());
+
+            for (const QString& key : keys) {
+                // 1. Split the string by underscores
+                // parameter_X_Y -> ["parameter", "X", "Y"]
+                QStringList parts = key.split('_');
+
+                // Ensure we have at least 3 parts (parameter, X, and Y)
+                if (parts.size() >= 3) {
+                    // Reconstruct the unique parameter group (e.g., "parameter_1")
+                    QString paramGroup = parts[0] == "pin" ? "parameter_i_" + parts[1] : "parameter_o_" + parts[1];
+
+                    // The rest is the name (Y). Join back in case Y contains underscores.
+                    QString attrName = parts.mid(2).join('_');
+
+                    // 2. Retrieve existing group object or create a new one
+                    QJsonObject paramObject = root.value(paramGroup).toObject();
+
+                    // 3. Insert the Y name and the value from prop()
+                    QString valueTypes;
+                    if ( parts[2] != "type")
+                        paramObject.insert(attrName, props[key].toString().trimmed());
+                    else{
+                         valueTypes = Ilwis::TypeHelper::type2names(props[key].toLongLong());
+                         paramObject.insert("type", valueTypes);
+                    }
+                    paramObject.insert("index", parts[1]);
+                    paramObject.insert("input", parts[0] == "pin" ? "yes" : "no");
+                    if ( parts[0] == "pout" && parts[2] == "type"){
+                        root.insert("boolean_operation", valueTypes.indexOf("bool") >= 0 ? "yes": "no");
+                    }
+                    if ( key.indexOf("parm_name") > 0){
+                        QString pname = props[key].toString();
+                        paramObject.insert("valueset", fixeds[pname].join('|'));
+                    }
+
+                    // 4. Put the updated group back into the root object
+                    root.insert(paramGroup, paramObject);
+                }else {
+                    root.insert(key, props[key].toString().trimmed());
+                }
+            }
+
+            QJsonDocument doc(root);
+            parms +=  QString::fromLocal8Bit( doc.toJson(QJsonDocument::Compact)) + "}";
+
+            ret += parms;
+
+            ++count;
+        }else if (QString::fromStdString(name).compare(it->name(),Qt::CaseInsensitive) == 0){
             if(!ret.isEmpty())
                 ret.append("; ");
             if (element.compare("description") == 0)
                 ret.append(it->description());
+            else if ( element.compare("id") == 0)
+                ret.append(QString::number(it->id()));
             else
                 ret.append((*it)[element.c_str()].toString());
         }
     }
+    ret += all ? "]" : "";
     return ret.toStdString();
 }
 
@@ -374,7 +533,80 @@ std::string Engine::_operationMetaData(const std::string &name, const std::strin
          QString tpNames = Ilwis::TypeHelper::type2names(typeNames.toULongLong()," or ");
          retValue = tpNames.toStdString();
      }
-     return retValue;}
+     return retValue;
+}
+
+std::string Engine::_updateWorkflow(const std::string& json){
+    QJsonDocument doc = QJsonDocument::fromJson(QString::fromStdString(json).toUtf8());
+    if (!doc.isNull()) {
+        Ilwis::IWorkflow wf;
+        QJsonValue v = doc["workflow_id"];
+        auto v2 = v.toInt();
+        if ( v2 == -1){
+            wf.prepare(Ilwis::Resource(QString("wf%1").arg((Ilwis::Time::now().toString(true, itUNKNOWN, true))), itWORKFLOW));
+            Ilwis::mastercatalog()->addItems({wf->resource()});
+            _workflows[v2] = wf;
+        }else {
+           wf.prepare(v2);
+        }
+        if ( wf.isValid()){
+            auto p = wf->id();
+            QString action= doc["action"].toString();
+            QString s = QString("{\"workflow_id\" :%1").arg(p);
+            if ( action == "addnode"){
+                QString opid = doc["id"].toString();
+                Ilwis::SPOperationNode opNode;
+                auto opNodePtr = new Ilwis::OperationNode(opid.toLongLong());
+                opNode.reset(opNodePtr);
+                wf->addNode(opNode);
+                wf->createMetadata();
+                s += ",\"node_id\":" + QString::number(opNodePtr->id());
+
+
+            }else if ( action == "addconnection"){
+                int parmInIndex = doc["paramInIndex"].toInt();
+                if ( parmInIndex != 9999){ // 9999 is magic number for indicating the test part of condition
+                    int sourceNodeId= doc["source"].toString().toInt();
+                    int targetNodeId= doc["target"].toString().toInt();
+                    int parmOutIndex = doc["paramOutIndex"].toInt();
+                    wf->addFlow(sourceNodeId, targetNodeId, parmInIndex,parmOutIndex);
+                    wf->createMetadata();
+                }else {
+                    int sourceNodeId= doc["source"].toString().toInt();
+                    int targetNodeId= doc["target"].toString().toInt();
+                    auto testNode = wf->nodeById(sourceNodeId);
+                    auto condNode = std::static_pointer_cast<Ilwis::WorkFlowCondition>(wf->nodeById(targetNodeId));
+                    condNode->addTest(testNode);
+                }
+                s += QString(",\"node_id\":") + doc["source"].toString();
+            }else if ( action == "fixed"){
+                int nodeid = doc["node_id"].toString().toInt();
+                auto parms = doc["parameters"].toObject();
+                int count = 0;
+                for (auto it = parms.begin(); it != parms.end(); ++it) {
+                    QString key = it.key();
+                    auto value = it.value().toObject();
+                    QString fixed =value["fixed_value"].toString();
+                    if ( fixed != ""){
+                        wf->setFixedParameter(fixed, nodeid, count);
+                    }
+                    ++count;
+                }
+            }else if ( action == "addcondition"){
+                Ilwis::SPWorkFlowNode conNode;
+                auto conNodePtr = new Ilwis::WorkFlowCondition();
+                conNodePtr->nodeId(wf->generateId());
+                conNode.reset(conNodePtr);
+                wf->addNode(conNode);
+                s += ",\"node_id\":" + QString::number(conNode->id());
+            }
+            s += "}";
+            return s.toStdString();
+        }
+
+    }
+    return "{\'workflow_id\': -1}";
+}
 
 PyObject* Engine::_catalogItems(quint64 filter){
     Ilwis::ICatalog cat = Ilwis::context()->workingCatalog();
@@ -403,9 +635,9 @@ std::string Engine::_version()
     return Ilwis::kernel()->version()->verionNumber().toStdString();
 }
 
-PyObject *Engine::_operations(const std::string &)
+PyObject *Engine::_operations(const std::string &mode)
 {
-    return operations();
+    return operations(mode);
 }
 
 std::string Engine::addQuotesIfNeeded(std::string parameter) {
@@ -431,7 +663,7 @@ void Engine::_removeObject(quint64 id) {
         Ilwis::mastercatalog()->removeItems({res});
 }
 
-std::string Engine::_contextProperty(const std::string& propName){
+std::string Engine::contextProperty(const std::string& propName){
     QString pn = QString::fromStdString(propName);
     pn = pn.toLower();
     QString result = sUNDEF;
@@ -447,7 +679,9 @@ std::string Engine::_contextProperty(const std::string& propName){
         const Ilwis::ICatalog cat = Ilwis::context()->systemCatalog();
         QUrl location = cat->filesystemLocation();
         result = location.toString();
-     }
+    }else if ( propName == "loglocation"){
+      result = Ilwis::kernel()->issues()->location();
+    }
     return result.toStdString();
 }
 
