@@ -497,6 +497,12 @@ def __getitem__(self, name):
 %}
 
 %pythoncode %{
+    def contextProperty(propertyName):
+        return Engine_contextProperty(propertyName)
+%}
+
+
+%pythoncode %{
 def operations(query=""):
     return Engine__operations(query)
 %}
@@ -504,6 +510,11 @@ def operations(query=""):
 %pythoncode %{
 def operationMetaData(name, element1 = "syntax", ordinal=-1, element2=""):
   return Engine__operationMetaData(name, element1, ordinal, element2)
+%}
+
+%pythoncode %{
+  def updateWorkflow(wfjson):
+    return Engine__updateWorkflow(wfjson)
 %}
 
 %pythoncode %{
