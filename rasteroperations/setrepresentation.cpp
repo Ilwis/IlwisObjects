@@ -123,10 +123,10 @@ quint64 SetRepresentation::createMetadata()
 {
 	OperationResource operation({ "ilwis://operations/setrepresentation" });
 	operation.setSyntax("stackminmaxpick(raster1, attribute=Pixel value, representation");
-	operation.setDescription(TR("generates a new raster with the same structure as the original but every pixel column \nin the stack will only retain its value if its either the min or the max in his column"));
+    operation.setDescription(TR("generates a new raster with the same structure as the original but every pixel column in the stack will only retain its value if its either the min or the max in his column"));
 	operation.setInParameterCount({ 3 });
 	operation.addInParameter(0, itRASTER, TR("rastercoverage"), TR("input rastercoverage with any domain domain"));
-	operation.addInParameter(1, itSTRING, TR("atribute"), TR("Attribute whose representation needs to be set. For Value maps the default attribute is \"Pixel Value\" "));
+    operation.addInParameter(1, itSTRING, TR("atribute"), TR("Attribute whose representation needs to be set. For Value maps the default attribute is Pixel Value "));
 	operation.addInParameter(2, itREPRESENTATION, TR("Representation"), TR("The representation used for the selected attribute"));
 	operation.setOutParameterCount({ 1 });
 	operation.addOutParameter(0, itRASTER, TR("output raster"), TR("output raste"));
