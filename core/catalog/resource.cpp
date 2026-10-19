@@ -1024,3 +1024,7 @@ void Resource::applyAdjustments(const std::map<QString, QString>& adjustments) {
 		addProperty("keyword", (*iter).second);
 	}
 }
+
+QHash<QString, QVariant> Resource::properties() const{
+    return _properties;
+}

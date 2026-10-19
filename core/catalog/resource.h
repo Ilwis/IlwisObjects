@@ -138,6 +138,7 @@ public:
      * @return the Value of the property or iUNDEF
      */
     QVariant operator[] (const QString& property) const;
+    QHash<QString, QVariant> properties() const;
     Resource property2Resource(const QString &propertyName, IlwisTypes type) const;
 
     /**
