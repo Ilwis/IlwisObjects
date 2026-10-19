@@ -52,3 +52,18 @@ if retcode != 0:
         i = i + 1
     f.flush()
     f.close()
+
+f = open('ilwisobjects.pro')
+lines = f.readlines()
+f.close()
+f = None
+lines = [line.rstrip() for line in lines]
+i = 0
+f = open('ilwisobjects.pro', 'w')
+while i < len(lines):
+    line = lines[i]
+    if not line.strip().startswith('commandlineclient.pro'):
+        f.write(line + '\n')
+    i = i + 1
+f.flush()
+f.close()
