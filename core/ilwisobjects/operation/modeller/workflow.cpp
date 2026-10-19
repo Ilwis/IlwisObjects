@@ -168,7 +168,8 @@ void Workflow::addFlow(NodeId fromNode, NodeId toNode, qint32 inParmIndex, qint3
     SPWorkFlowNode from = nodeById(fromNode);
     SPWorkFlowNode to = nodeById(toNode);
     if ( from && to){
-		int inpCount = to->type() == WorkFlowNode::ntJUNCTION ? 3 : inParmIndex < to->inputCount();
+        int ic = to->inputCount();
+        int inpCount = to->type() == WorkFlowNode::ntJUNCTION ? 3 : ic;
         if ( inParmIndex < inpCount ){
             to->setFlow(from, inParmIndex, outParmIndex);
         }
@@ -559,6 +560,8 @@ quint64 Workflow::createMetadata(int offset){
         int count = 0;
         _parmid2order.clear();
         QString syntax = opname + "(";
+        operation.removeInputParameters();
+        operation.removeOutputParameters();
         operation.setInParameterCount({(quint32)inputparams.size()});
         for(WorkFlowParameter parm : inputparams){
             _parmid2order[parm.id()] = count + offset;
