@@ -335,6 +335,8 @@ QString TypeHelper::type2name(IlwisTypes t)
         return "combinationmatrix";
 	case itCHART:
 		return "chart";
+    case itATTRIBUTETABLE:
+        return "table";
     default:
         return sUNDEF;
     }
