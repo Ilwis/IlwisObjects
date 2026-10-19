@@ -46,6 +46,8 @@ public:
     void setOutputIsInput(int outParm, int inParm);
 	void setCustomForm(const QString& form);
 	void checkAlternateDefinition();
+    void removeInputParameters();
+    void removeOutputParameters();
 	
     bool compatibleOperationAlreadyExists(bool ignoreSelf=true);
 };

@@ -571,4 +571,30 @@ void OperationResource::checkAlternateDefinition() {
 
 }
 
+void OperationResource::removeInputParameters()
+{
+    QHash<QString, QVariant>::iterator it = _properties.begin();
+
+    while (it != _properties.end()) {
+        if (it.key().startsWith("pin_")) {
+            it = _properties.erase(it); // erase returns the next iterator
+        } else {
+            ++it;
+        }
+    }
+}
+
+void OperationResource::removeOutputParameters()
+{
+    QHash<QString, QVariant>::iterator it = _properties.begin();
+
+    while (it != _properties.end()) {
+        if (it.key().startsWith("pout_")) {
+            it = _properties.erase(it); // erase returns the next iterator
+        } else {
+            ++it;
+        }
+    }
+}
+
 
