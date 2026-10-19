@@ -23,6 +23,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 #include "catalog.h"
 #include "raster.h"
 #include "errorobject.h"
+#include "operationExpression.h"
+#include "operationmetadata.h"
+#include "operation.h"
+#include "workflownode.h"
+#include "workflow.h"
 
 int main(int argc, char *argv[])
 {
@@ -36,8 +41,13 @@ int main(int argc, char *argv[])
         if (!scriptStatementAtBegin)
             expr = "script " + expr;
 
+
         std::string err = Ilwis::initIlwis(Ilwis::rmCOMMANDLINE | Ilwis::rmNOUI);
-        Ilwis::ICatalog catalog("file:///E:/Projects/EO-Africa/timesat discrepancy");
+        {
+        Ilwis::IWorkflow wf;
+        wf.prepare(Ilwis::Resource(itWORKFLOW));
+        }
+        /*Ilwis::ICatalog catalog("file:///E:/Projects/EO-Africa/timesat discrepancy");
         Ilwis::context()->setWorkingCatalog(catalog);
         if (err.length() == 0) {
             Ilwis::ExecutionContext ctx;
@@ -46,7 +56,7 @@ int main(int argc, char *argv[])
         }
         else {
             std::cerr << err;
-        }
+        }*/
 
         Ilwis::exitIlwis();
         return 0;
