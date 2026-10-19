@@ -163,6 +163,7 @@ void Ilwis::IssueLogger::initLogger(const QString& location)
     }
     _logFileRegular.open(rlogFilePath.toLatin1());
     _logFileCode.open(clogFilePath.toLatin1());
+    _path = rlogFilePath;
 }
 
 
@@ -337,5 +338,9 @@ void IssueLogger::clear() {
 
 QString IssueLogger::lastIssue() {
     return _lastmessage;
+}
+
+QString IssueLogger::location() const{
+    return _path;
 }
 

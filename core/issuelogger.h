@@ -107,6 +107,7 @@ public:
     QString lastIssue();
 
     void initLogger(const QString &location = "?");
+    QString location() const;
     
 signals:
     void updateIssues(const IssueObject& issue);
@@ -118,6 +119,7 @@ private:
     QQueue<IssueObject> _issues;
     std::ofstream _logFileRegular;
     std::ofstream _logFileCode;
+    QString _path;
     static std::map<std::thread::id, bool> _silentThreads;
     mutable std::recursive_mutex _guard;
 
