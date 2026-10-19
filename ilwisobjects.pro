@@ -3,6 +3,7 @@ TEMPLATE = subdirs
 CONFIG += ordered
 
 SUBDIRS += \
+    commandlineclient.pro \
     core.pro \
     baseoperations.pro \
     featureoperations.pro \
