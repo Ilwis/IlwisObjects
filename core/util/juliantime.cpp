@@ -726,7 +726,7 @@ void Time::setSecond(double sec) {
 
 
 
-QString Time::toString(bool local, IlwisTypes tp) const{
+QString Time::toString(bool local, IlwisTypes tp, bool raw) const{
     if ( tp == itUNKNOWN)
         tp = _valuetype;
     if ( *this == tUNDEF || _julianday == rUNDEF)
@@ -749,7 +749,15 @@ QString Time::toString(bool local, IlwisTypes tp) const{
     time.tm_min = minutes;
     time.tm_sec = round(seconds);
     time_t t = mktime(&time);
-    if ( local) {
+    if ( raw){
+        struct tm *timeinfo = localtime(&t);
+        if ( tp == itDATE)
+            return QString("%1%2%3").arg(year,4, 10, QLatin1Char('0')).arg(timeinfo->tm_mon + 1,2,10,QLatin1Char('0')).arg(timeinfo->tm_mday,2,10,QLatin1Char('0'));
+        else if ( tp == itDATETIME)
+            return QString("%1%2%3T%4%5%6").arg(year,4, 10, QLatin1Char('0')).arg(timeinfo->tm_mon + 1,2,10,QLatin1Char('0')).arg(timeinfo->tm_mday,2,10,QLatin1Char('0')).arg(timeinfo->tm_hour,2,10,QLatin1Char('0')).arg(timeinfo->tm_min,2,10,QLatin1Char('0')).arg(timeinfo->tm_sec,2,10,QLatin1Char('0'));
+        else if ( tp == itTIME)
+            return QString("%1%2%3").arg(timeinfo->tm_hour,2,10,QLatin1Char('0')).arg(timeinfo->tm_min,2,10,QLatin1Char('0')).arg(timeinfo->tm_sec, 2, 10, QLatin1Char('0'));
+    }else if ( local) {
         struct tm *timeinfo = localtime(&t);
         if ( tp == itDATE)
             return QString("%1-%2-%3").arg(year,4, 10, QLatin1Char('0')).arg(timeinfo->tm_mon + 1,2,10,QLatin1Char('0')).arg(timeinfo->tm_mday,2,10,QLatin1Char('0'));

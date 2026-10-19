@@ -308,7 +308,7 @@ public:
      * @param mode
      * @return
      */
-    virtual QString toString(bool local= false, IlwisTypes tp=itUNKNOWN) const;
+    virtual QString toString(bool local= false, IlwisTypes tp=itUNKNOWN, bool raw=false) const;
 
     /**
      * Checks the validity of this time. <br>
