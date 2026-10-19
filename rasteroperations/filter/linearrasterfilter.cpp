@@ -120,7 +120,7 @@ quint64 LinearRasterFilter::createMetadata()
     operation.addInParameter(1,itSTRING , TR("filter definition"),TR("Definition of the filter. This is a predefined filter name"), OperationResource::ueCOMBO);
     operation.parameterNeedsQuotes(1);
     operation.setOutParameterCount({1});
-    operation.addValidation(0,1,"values with select code from filters where type='linear' ");
+    operation.addValidation(0,1,"values with select code from filters where type=linear ");
     operation.addOutParameter(0,itRASTER, TR("output raster"),TR("output raster with a numeric domain"));
     operation.setKeywords("filter,raster,image processing, numeric");
 

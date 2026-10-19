@@ -126,7 +126,7 @@ quint64 StackMinMaxFilter::createMetadata()
 {
     OperationResource operation({"ilwis://operations/stackminmaxpick"});
     operation.setSyntax("stackminmaxpick(raster1, minimum|maximum");
-    operation.setDescription(TR("generates a new raster with the same structure as the original but every pixel column \nin the stack will only retain its value if its either the min or the max in his column"));
+    operation.setDescription(TR("generates a new raster with the same structure as the original but every pixel column in the stack will only retain its value if its either the min or the max in his column"));
     operation.setInParameterCount({2});
     operation.addInParameter(0,itRASTER , TR("rastercoverage"),TR("input rastercoverage with numeric domain"));
     operation.addInParameter(1,itSTRING , TR("filter type"),TR("Definition of the filter type. This can be either minimum or maximum"));
