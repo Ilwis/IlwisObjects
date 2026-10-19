@@ -285,27 +285,7 @@ quint64 SelectionRaster::createMetadata()
     operation.setLongName("Raster Selection");
 	operation.setCustomForm("RasterSelection.qml");
     operation.setSyntax("selection(coverage,selection-definition)");
-    operation.setDescription("The select is meant as a base operation for “selecting  things” in a coverage. Things can be clipped regions, attributes or logical constraints. There are minimal differences between raster and features for this operation ( e.g. boundingbox is not accepted for features as it is a pixel thing).\
-        The formal definition is : (logical - attribute - comparision) ? (and|or logical - attribute - comparision)* (with : (data - defintion) (and (data - selection)*) ? \
-		\
-            Where \
-            Logical - attribute - comparison : attribute(< | >|<=|>= |= = ) appropriate - value, pecial attribute for rasters is pixelvalue.For rasters without attribute tables \
-            Data - selection: envelope - definition | boundingbox - defintion | polygon - defintion | attribute - definition, defines a spatial area \
-            Envelope - definition: envelope(minx miny, maxx maxy), in coordinates \
-            Boundingbox - defintion: boundingbox(minx miny, maxx maxy), in pixels \
-            Polygon - definitions, >wkt polygon definition \
-            Attribute - definition, attributes(<attribute - name>(, attribute - name > )*) , in case of rasters and only one attribute is selected, no attribute table will be attached \
-            Rasterbands, rasterbands(<comma separate list> | (<number>..<higher number>), Selects bands out of a mulitband \
-            </table> \
-\
-            This sounds complicated but a few examples \
-\
-            Select(someraster, PH > 4 and PH < 7); logical - attribute (PH) selection \
-            Select(someraster, PH > 4 or topology == flat); logical - attribute selection  \
-            Select(someraster, boundingbox(20 20, 300 250)); data - selection by clipping  \
-            Select(someraster, PH > 6 with: boundingbox(20 20, 300 250)); logical - attribute selection and a data - selection \
-            Select(someraster, PH > 6 with: boundingbox(20 20, 300 250) and attributes(topology)); logical - attribute selection and a two data - selections \
-            Select(anotherraster, pixelvalue < 100); logical - attribute - selection with pixelvalues(usualy images)  ");
+    operation.setDescription("The select is meant as a base operation for selecting  pixels in a coverage based on a set of conditions.");
     operation.setInParameterCount({2});
     operation.addInParameter(0,itRASTER, TR("input rastercoverage"),TR("input rastercoverage with a domain as specified by the selection"));
     operation.addInParameter(1,itSTRING,  TR("selection-definition"),TR("Selection can either be attribute, layer index or area definition (e.g. box)"));
